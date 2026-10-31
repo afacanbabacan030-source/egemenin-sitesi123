@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Rider 3D - Sesli Pro</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #87CEEB;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #ffcc00;
+            font-size: 22px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #level-box {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            color: #00ff66;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #nitro-box {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            color: #00ffff;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 10;
+        }
+        #speedometer {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 10;
+            background: rgba(0,0,0,0.75);
+            padding: 12px 30px;
+            border-radius: 12px;
+            border: 2px solid #ffcc00;
+            text-align: center;
+        }
+        #speedometer span {
+            font-size: 16px;
+            color: #ffcc00;
+            display: block;
+            letter-spacing: 2px;
+        }
+        #combo-text {
+            position: absolute;
+            top: 30%;
+            width: 100%;
+            text-align: center;
+            color: #ff0055;
+            font-size: 35px;
+            font-weight: bold;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            z-index: 15;
+            display: none;
+            animation: popUp 0.5s ease-out;
+        }
+        @keyframes popUp {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 12px 18px;
+            font-size: 14px;
+            pointer-events: none;
+            z-index: 10;
+            border-radius: 8px;
+            line-height: 1.5;
+        }
+        /* GARAJ MENÜSÜ */
+        #garage-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1b4332, #081c15);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 30;
+        }
+        #garage-screen h1 {
+            color: #ffcc00;
+            font-size: 42px;
+            margin-bottom: 5px;
+            text-shadow: 3px 3px #000;
+        }
+        #garage-screen p {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .color-options {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 12px;
+            margin: 15px 0;
+        }
+        .color-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            border: 3px solid white;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .color-btn:hover {
+            transform: scale(1.15);
+            box-shadow: 0 0 10px white;
+        }
+        #start-btn {
+            padding: 14px 40px;
+            font-size: 22px;
+            background: #ffcc00;
+            color: #000;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 5px #997a00;
+            margin-top: 15px;
+        }
+        #start-btn:active {
+            transform: translateY(4px);
+            box-shadow: none;
+        }
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(180, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 45px;
+            font-weight: bold;
+            z-index: 20;
+            display: none;
+        }
+        #game-over button {
+            margin-top: 25px;
+            padding: 12px 30px;
+            font-size: 22px;
+            background: #ffcc00;
+            color: #000;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            border-radius: 8px;
+            box-shadow: 0 4px #997a00;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="garage-screen">
+        <h1>SESLİ TRAFİK RİDER - GARAJ</h1>
+        <p>Egemen, rengini seç, motor sesleriyle piste çık!</p>
+        <div class="color-options">
+            <div class="color-btn" style="background: #ffcc00;" onclick="changeBikeColor(0xffcc00)"></div>
+            <div class="color-btn" style="background: #ff0033;" onclick="changeBikeColor(0xff0033)"></div>
+            <div class="color-btn" style="background: #0066ff;" onclick="changeBikeColor(0x0066ff)"></div>
+            <div class="color-btn" style="background: #ff00ff;" onclick="changeBikeColor(0xff00ff)"></div>
+            <div class="color-btn" style="background: #00ffff;" onclick="changeBikeColor(0x00ffff)"></div>
+            <div class="color-btn" style="background: #ffffff;" onclick="changeBikeColor(0xffffff)"></div>
+            <div class="color-btn" style="background: #ff6600;" onclick="changeBikeColor(0xff6600)"></div>
+            <div class="color-btn" style="background: #7209b7;" onclick="changeBikeColor(0x7209b7)"></div>
+            <div class="color-btn" style="background: #38b000;" onclick="changeBikeColor(0x38b000)"></div>
+            <div class="color-btn" style="background: #333333;" onclick="changeBikeColor(0x333333)"></div>
+            <div class="color-btn" style="background: #8d99ae;" onclick="changeBikeColor(0x8d99ae)"></div>
+            <div class="color-btn" style="background: #ffb703;" onclick="changeBikeColor(0xffb703)"></div>
+        </div>
+        <button id="start-btn" onclick="startGame()">GAZI KÖKLE</button>
+    </div>
+
+    <div id="hud">
+        Skor: <span id="score">0</span> | Para: $<span id="money">0</span>
+    </div>
+    <div id="level-box">
+        Seviye: <span id="level">1</span> (XP: <span id="xp">0</span>/<span id="next-xp">500</span>)
+    </div>
+    <div id="nitro-box">
+        NITRO: <span id="nitro-text">100</span>% (SPACE)
+    </div>
+
+    <div id="combo-text">MAKAS! +250 Puan</div>
+
+    <div id="speedometer">
+        <span id="speed">0</span> KM/H
+    </div>
+
+    <div id="instructions">
+        <b>W</b>: Gaz | <b>A/D</b>: Şerit | <b>SPACE</b>: Nitro<br>
+        <b>E Tuşu</b>: Ön Kaldırma (Tek Teker / Wheelie)
+    </div>
+    
+    <div id="game-over">
+        KAZA YAPTIN!
+        <div style="font-size: 22px; margin-top: 10px;" id="final-score">Toplam Skor: 0</div>
+        <button onclick="location.reload()">TEKRAR GARAJA DÖN</button>
+    </div>
+
+    <!-- Three.js Kütüphanesi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let scene, camera, renderer;
+        let playerBike, bodyMaterial;
+        let trafficCars = [];
+        let roadSegments = [];
+        let score = 0, money = 0;
+        let level = 1, xp = 0, nextLevelXp = 500;
+        let currentSpeed = 0, maxSpeed = 1.3, normalMaxSpeed = 1.3;
+        let nitroAmount = 100, isNitroActive = false;
+        let isWheelieActive = false, wheelieTimer = 0;
+        let isGameStarted = false, isGameOver = false;
+
+        // Ses Sistemi (Web Audio API)
+        let audioCtx = null;
+        let engineOsc = null, engineGain = null;
+
+        const lanes = [-2.8, 0, 2.8];
+        let currentLaneIndex = 1;
+
+        let keyW = false, keyA = false, keyD = false, keyS = false, keySpace = false, keyE = false;
+        let canSwitchLane = true;
+        let selectedColor = 0xffcc00;
+
+        init();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); 
+            scene.fog = new THREE.FogExp2(0x87CEEB, 0.007);
+
+            camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            sunLight.position.set(20, 50, 20);
+            scene.add(sunLight);
+
+            playerBike = createBikeMesh();
+            scene.add(playerBike);
+            playerBike.position.set(lanes[currentLaneIndex], 0.4, 0);
+
+            for (let i = 0; i < 15; i++) {
+                createRoadAndForestSegment(i * 40);
+            }
+
+            for (let i = 0; i < 8; i++) {
+                spawnTrafficCar(i * 35 + 60);
+            }
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+            window.addEventListener('resize', onWindowResize);
+            
+            animate();
+        }
+
+        // Ses Motorunu Başlatma
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            // Motor Uğultu Sesi
+            if (!engineOsc) {
+                engineOsc = audioCtx.createOscillator();
+                engineOsc.type = 'sawtooth';
+                engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+                let filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+
+                engineGain = audioCtx.createGain();
+                engineGain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
+                engineOsc.connect(filter);
+                filter.connect(engineGain);
+                engineGain.connect(audioCtx.destination);
+                engineOsc.start();
+            }
+        }
+
+        // Özel Efekt Sesleri (Nitro, Makas, Çarpışma)
+        function playSoundEffect(type) {
+            if (!audioCtx) return;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            let now = audioCtx.currentTime;
+
+            if (type === 'nitro') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(400, now + 0.3);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'combo') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.setValueAtTime(600, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'crash') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(80, now);
+                osc.frequency.linearRampToValueAtTime(30, now + 0.4);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.linearRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            }
+        }
+
+        function changeBikeColor(hexColor) {
+            selectedColor = hexColor;
+            if (bodyMaterial) {
+                bodyMaterial.color.setHex(hexColor);
+            }
+        }
+
+        function startGame() {
+            initAudio();
+            document.getElementById('garage-screen').style.display = 'none';
+            isGameStarted = true;
+        }
+
+        function createBikeMesh() {
+            const bikeGroup = new THREE.Group();
+
+            bodyMaterial = new THREE.MeshStandardMaterial({ color: selectedColor, metalness: 0.6, roughness: 0.2 });
+            const bodyGeo = new THREE.BoxGeometry(0.5, 0.55, 1.5);
+            const body = new THREE.Mesh(bodyGeo, bodyMaterial);
+            body.position.y = 0.5;
+            bikeGroup.add(body);
+
+            const windshieldGeo = new THREE.BoxGeometry(0.42, 0.35, 0.1);
+            const windshieldMat = new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.7 });
+            const windshield = new THREE.Mesh(windshieldGeo, windshieldMat);
+            windshield.position.set(0, 0.8, 0.4);
+            windshield.rotation.x = -0.4;
+            bikeGroup.add(windshield);
+
+            const headlightGeo = new THREE.BoxGeometry(0.3, 0.12, 0.1);
+            const headlightMat = new THREE.MeshBasicMaterial({ color: 0xffffaa });
+            const headlight = new THREE.Mesh(headlightGeo, headlightMat);
+            headlight.position.set(0, 0.55, 0.78);
+            bikeGroup.add(headlight);
+
+            const exhaustGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8);
+            const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.9 });
+            
+            const exhaust1 = new THREE.Mesh(exhaustGeo, exhaustMat);
+            exhaust1.rotation.x = Math.PI / 2;
+            exhaust1.position.set(-0.15, 0.35, -0.85);
+            bikeGroup.add(exhaust1);
+
+            const exhaust2 = new THREE.Mesh(exhaustGeo, exhaustMat);
+            exhaust2.rotation.x = Math.PI / 2;
+            exhaust2.position.set(0.15, 0.35, -0.85);
+            bikeGroup.add(exhaust2);
+
+            const handleGeo = new THREE.BoxGeometry(0.9, 0.08, 0.08);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0x222 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.position.set(0, 0.85, 0.3);
+            bikeGroup.add(handle);
+
+            const wheelGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.22, 16);
+            const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111, roughness: 0.8 });
+            
+            const frontWheel = new THREE.Mesh(wheelGeo, wheelMat);
+            frontWheel.rotation.z = Math.PI / 2;
+            frontWheel.position.set(0, 0.35, 0.7);
+            bikeGroup.add(frontWheel);
+
+            const rearWheel = new THREE.Mesh(wheelGeo, wheelMat);
+            rearWheel.rotation.z = Math.PI / 2;
+            rearWheel.position.set(0, 0.35, -0.7);
+            bikeGroup.add(rearWheel);
+
+            return bikeGroup;
+        }
+
+        function createRoadAndForestSegment(zPos) {
+            const segmentGroup = new THREE.Group();
+
+            const groundGeo = new THREE.PlaneGeometry(60, 40);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x38b000, roughness: 0.9 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.05;
+            segmentGroup.add(ground);
+
+            const roadGeo = new THREE.PlaneGeometry(10, 40);
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x2b2b30, roughness: 0.9 });
+            const road = new THREE.Mesh(roadGeo, roadMat);
+            road.rotation.x = -Math.PI / 2;
+            segmentGroup.add(road);
+
+            const lineGeo = new THREE.BoxGeometry(0.2, 0.02, 4);
+            const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            
+            const line1 = new THREE.Mesh(lineGeo, lineMat);
+            line1.position.set(-1.4, 0.01, 0);
+            segmentGroup.add(line1);
+
+            const line2 = new THREE.Mesh(lineGeo, lineMat);
+            line2.position.set(1.4, 0.01, 0);
+            segmentGroup.add(line2);
+
+            for (let z = -18; z <= 18; z += 6) {
+                createTree(segmentGroup, -6 - Math.random() * 4, z);
+                createTree(segmentGroup, -10 - Math.random() * 5, z + 2);
+                createTree(segmentGroup, 6 + Math.random() * 4, z);
+                createTree(segmentGroup, 10 + Math.random() * 5, z + 2);
+            }
+
+            segmentGroup.position.z = zPos;
+            scene.add(segmentGroup);
+            roadSegments.push(segmentGroup);
+        }
+
+        function createTree(parentGroup, x, z) {
+            const trunkGeo = new THREE.CylinderGeometry(0.4, 0.4, 2.5, 6);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6e473b });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.set(x, 1.25, z);
+            parentGroup.add(trunk);
+
+            const leavesGeo = new THREE.ConeGeometry(1.8, 4, 6);
+            const leavesMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f });
+            const leaves = new THREE.Mesh(leavesGeo, leavesMat);
+            leaves.position.set(x, 3.5, z);
+            parentGroup.add(leaves);
+        }
+
+        function spawnTrafficCar(zPos) {
+            const carGroup = new THREE.Group();
+            const colors = [0xd90429, 0xedf2f4, 0x3a86ff, 0xffb703, 0x8338ec];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+
+            const carGeo = new THREE.BoxGeometry(1.8, 1.0, 3.6);
+            const carMat = new THREE.MeshStandardMaterial({ color: randomColor, roughness: 0.3 });
+            const carBody = new THREE.Mesh(carGeo, carMat);
+            carBody.position.y = 0.55;
+            carGroup.add(carBody);
+
+            const windshieldGeo = new THREE.BoxGeometry(1.6, 0.5, 1.5);
+            const windshieldMat = new THREE.MeshStandardMaterial({ color: 0x111111, transparent: true, opacity: 0.8 });
+            const windshield = new THREE.Mesh(windshieldGeo, windshieldMat);
+            windshield.position.set(0, 0.85, 0.2);
+            carGroup.add(windshield);
+
+            const headLightGeo = new THREE.BoxGeometry(0.4, 0.12, 0.1);
+            const headLightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            
+            const leftHeadlight = new THREE.Mesh(headLightGeo, headLightMat);
+            leftHeadlight.position.set(-0.6, 0.5, 1.81);
+            carGroup.add(leftHeadlight);
+
+            const rightHeadlight = new THREE.Mesh(headLightGeo, headLightMat);
+            rightHeadlight.position.set(0.6, 0.5, 1.81);
+            carGroup.add(rightHeadlight);
+
+            const exhaustGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8);
+            const exhaustMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 });
+            
+            const ex1 = new THREE.Mesh(exhaustGeo, exhaustMat);
+            ex1.rotation.x = Math.PI / 2;
+            ex1.position.set(-0.5, 0.3, -1.81);
+            carGroup.add(ex1);
+
+            const ex2 = new THREE.Mesh(exhaustGeo, exhaustMat);
+            ex2.rotation.x = Math.PI / 2;
+            ex2.position.set(0.5, 0.3, -1.81);
+            carGroup.add(ex2);
+
+            let randomLane = lanes[Math.floor(Math.random() * lanes.length)];
+            carGroup.position.set(randomLane, 0, zPos);
+            carGroup.userData = { speed: 0.45 + Math.random() * 0.3, nearMissed: false };
+
+            scene.add(carGroup);
+            trafficCars.push(carGroup);
+        }
+
+        function onKeyDown(e) {
+            if (!isGameStarted || isGameOver) return;
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keyW = true;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keyS = true;
+            if (e.code === 'Space') {
+                if (!keySpace) playSoundEffect('nitro');
+                keySpace = true;
+            }
+            if (e.code === 'KeyE') keyE = true;
+
+            if ((e.code === 'KeyA' || e.code === 'ArrowLeft') && canSwitchLane) {
+                if (currentLaneIndex > 0) {
+                    currentLaneIndex--;
+                    canSwitchLane = false;
+                    setTimeout(() => canSwitchLane = true, 150);
+                }
+            }
+            if ((e.code === 'KeyD' || e.code === 'ArrowRight') && canSwitchLane) {
+                if (currentLaneIndex < lanes.length - 1) {
+                    currentLaneIndex++;
+                    canSwitchLane = false;
+                    setTimeout(() => canSwitchLane = true, 150);
+                }
+            }
+        }
+
+        function onKeyUp(e) {
+            if (e.code === 'KeyW' || e.code === 'ArrowUp') keyW = false;
+            if (e.code === 'KeyS' || e.code === 'ArrowDown') keyS = false;
+            if (e.code === 'Space') keySpace = false;
+            if (e.code === 'KeyE') keyE = false;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function addXp(amount) {
+            xp += amount;
+            if (xp >= nextLevelXp) {
+                level++;
+                xp = 0;
+                nextLevelXp += 250;
+                document.getElementById('level').innerText = level;
+            }
+            document.getElementById('xp').innerText = xp;
+            document.getElementById('next-xp').innerText = nextLevelXp;
+        }
+
+        function showComboText(text) {
+            playSoundEffect('combo');
+            const comboEl = document.getElementById('combo-text');
+            comboEl.innerText = text;
+            comboEl.style.display = 'block';
+            setTimeout(() => { comboEl.style.display = 'none'; }, 500);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (!isGameStarted || isGameOver) return;
+
+            // Motor Ses Frekansını Hıza Göre Ayarla
+            if (engineOsc) {
+                let targetFreq = 50 + (currentSpeed * 180);
+                engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+            }
+
+            if (keySpace && nitroAmount > 0) {
+                isNitroActive = true;
+                maxSpeed = 2.2;
+                nitroAmount -= 0.6;
+                if (nitroAmount < 0) nitroAmount = 0;
+            } else {
+                isNitroActive = false;
+                maxSpeed = normalMaxSpeed;
+                if (nitroAmount < 100) nitroAmount += 0.05;
+            }
+            document.getElementById('nitro-text').innerText = Math.floor(nitroAmount);
+
+            if (keyE && wheelieTimer <= 0) {
+                isWheelieActive = true;
+                wheelieTimer = 120;
+                score += 100;
+                showComboText("WHEELIE! +100 Puan");
+            }
+            if (wheelieTimer > 0) {
+                wheelieTimer--;
+                if (wheelieTimer === 0) isWheelieActive = false;
+            }
+
+            if (keyW) {
+                currentSpeed += 0.015;
+                if (currentSpeed > maxSpeed) currentSpeed = maxSpeed;
+            } else if (keyS) {
+                currentSpeed -= 0.025;
+                if (currentSpeed < 0) currentSpeed = 0;
+            } else {
+                currentSpeed -= 0.006;
+                if (currentSpeed < 0) currentSpeed = 0;
+            }
+
+            let kmh = Math.floor(currentSpeed * 150);
+            document.getElementById('speed').innerText = kmh;
+
+            playerBike.position.z += currentSpeed;
+
+            let targetX = lanes[currentLaneIndex];
+            playerBike.position.x += (targetX - playerBike.position.x) * 0.25;
+            playerBike.rotation.z = (targetX - playerBike.position.x) * -0.15;
+
+            let targetRotationX = isWheelieActive ? -0.35 : 0;
+            playerBike.rotation.x += (targetRotationX - playerBike.rotation.x) * 0.2;
+
+            let camOffsetZ = isNitroActive ? -5.5 : -4.5;
+            camera.position.set(playerBike.position.x * 0.4, playerBike.position.y + 2.2, playerBike.position.z + camOffsetZ);
+            camera.lookAt(playerBike.position.x, playerBike.position.y + 1, playerBike.position.z + 5);
+
+            if (currentSpeed > 0) {
+                let multiplier = isNitroActive ? 12 : (isWheelieActive ? 8 : 5);
+                score += Math.floor(currentSpeed * multiplier);
+                document.getElementById('score').innerText = score;
+            }
+
+            roadSegments.forEach(seg => {
+                if (seg.position.z < playerBike.position.z - 30) {
+                    seg.position.z += 600;
+                }
+            });
+
+            trafficCars.forEach(car => {
+                let zDist = Math.abs(playerBike.position.z - car.position.z);
+                let xDist = Math.abs(playerBike.position.x - car.position.x);
+                
+                if (zDist < 3 && xDist < 2 && !car.userData.nearMissed && playerBike.position.z < car.position.z) {
+                    car.userData.nearMissed = true;
+                    score += 250;
+                    money += 50;
+                    addXp(100);
+                    showComboText("MAKAS! +250 Puan");
+                }
+
+                if (car.position.z < playerBike.position.z - 30) {
+                    car.position.z = playerBike.position.z + 200 + Math.random() * 100;
+                    car.position.x = lanes[Math.floor(Math.random() * lanes.length)];
+                    car.userData.nearMissed = false;
+                    money += 15;
+                    document.getElementById('money').innerText = money;
+                }
+
+                let distance = playerBike.position.distanceTo(car.position);
+                if (distance < 1.4) {
+                    isGameOver = true;
+                    playSoundEffect('crash');
+                    if (engineGain) engineGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                    document.getElementById('final-score').innerText = "Toplam Skor: " + score + " | Seviye: " + level;
+                    document.getElementById('game-over').style.display = 'flex';
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
