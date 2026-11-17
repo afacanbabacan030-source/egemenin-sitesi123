@@ -1,0 +1,2948 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHADOW CLASH — Ultimate 3D Dövüş Oyunu</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&family=Inter:wght@400;600;700;800&display=swap">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+    html, body {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: #07080c; color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
+    }
+    .font-display { font-family: 'Cinzel', serif; }
+    #game-canvas {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      display: block; z-index: 1;
+    }
+    .ui-layer {
+      position: fixed; inset: 0; z-index: 10; pointer-events: none;
+    }
+    .interactive { pointer-events: auto; }
+    .glass-panel {
+      background: linear-gradient(145deg, rgba(16, 19, 28, 0.88), rgba(9, 11, 17, 0.94));
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+    }
+    .btn-clash {
+      background: linear-gradient(180deg, rgba(34, 39, 54, 0.92) 0%, rgba(17, 20, 29, 0.96) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      transition: all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative; overflow: hidden;
+    }
+    .btn-clash:hover {
+      transform: translateY(-2px);
+      border-color: #f59e0b;
+      box-shadow: 0 8px 24px rgba(245, 158, 11, 0.28);
+      background: linear-gradient(180deg, rgba(52, 58, 78, 0.96) 0%, rgba(24, 28, 40, 0.98) 100%);
+    }
+    .btn-clash:active { transform: translateY(0px) scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #dc2626 0%, #991b1b 55%, #7f1d1d 100%);
+      border: 1px solid rgba(252, 165, 165, 0.45);
+      box-shadow: 0 10px 28px rgba(220, 38, 38, 0.4);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 55%, #991b1b 100%);
+      border-color: #fde047;
+      box-shadow: 0 12px 32px rgba(239, 68, 68, 0.55);
+    }
+    .vignette-overlay {
+      position: fixed; inset: 0; pointer-events: none; z-index: 5;
+      background: radial-gradient(circle at center, transparent 58%, rgba(0, 0, 0, 0.72) 100%);
+    }
+    @keyframes popBanner {
+      0% { transform: scale(0.45) rotate(-3deg); opacity: 0; }
+      18% { transform: scale(1.12) rotate(1deg); opacity: 1; }
+      32% { transform: scale(1) rotate(0deg); opacity: 1; }
+      82% { transform: scale(1); opacity: 1; }
+      100% { transform: scale(1.15); opacity: 0; }
+    }
+    .banner-anim { animation: popBanner 1.45s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes toastSlide {
+      0% { transform: translateY(-30px) scale(0.92); opacity: 0; }
+      15% { transform: translateY(0) scale(1); opacity: 1; }
+      85% { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-20px) scale(0.95); opacity: 0; }
+    }
+    .toast-anim { animation: toastSlide 3.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.55)); }
+      50% { filter: drop-shadow(0 0 18px rgba(239, 68, 68, 0.85)); }
+    }
+    .logo-glow { animation: pulseGlow 3s infinite ease-in-out; }
+    .touch-btn {
+      background: radial-gradient(circle at 30% 30%, rgba(36, 41, 56, 0.85), rgba(12, 14, 22, 0.92));
+      border: 1.5px solid rgba(245, 158, 11, 0.45);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(6px);
+      touch-action: manipulation;
+    }
+    .touch-btn:active {
+      transform: scale(0.92);
+      border-color: #fde047;
+      background: radial-gradient(circle at 30% 30%, rgba(217, 119, 6, 0.55), rgba(120, 53, 15, 0.8));
+    }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+    ::-webkit-scrollbar-thumb { background: rgba(245,158,11,0.45); border-radius: 9999px; }
+  </style>
+</head>
+<body>
+  <canvas id="game-canvas"></canvas>
+  <div class="vignette-overlay"></div>
+
+  <!-- CANLI BAŞARIM BİLDİRİM ALANI -->
+  <div id="achievement-toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
+
+  <!-- YÜKLEME EKRANI -->
+  <div id="loading-screen" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#06070b]">
+    <div class="text-center max-w-md px-6">
+      <h1 class="font-display text-4xl sm:text-5xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-red-500 to-amber-300 mb-2">
+        SHADOW CLASH
+      </h1>
+      <p class="text-xs uppercase tracking-[0.35em] text-gray-400 mb-8">3D Sinematik Arena Dövüşü</p>
+      <div class="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden border border-gray-800 mb-3">
+        <div id="loading-bar" class="h-full bg-gradient-to-r from-amber-500 via-red-500 to-yellow-400 transition-all duration-300" style="width: 15%"></div>
+      </div>
+      <p id="loading-text" class="text-xs text-gray-400">3D Savaşçılar ve PBR Dokular Hazırlanıyor...</p>
+    </div>
+  </div>
+
+  <!-- ANA MENÜ -->
+  <div id="main-menu" class="ui-layer hidden flex-col justify-between p-5 sm:p-8">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="interactive">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold tracking-wider mb-2">
+          <span>⚔️ SÜRÜM 3.0 • 9 SAVAŞÇI • 4 ARENA</span>
+        </div>
+        <h1 class="font-display text-4xl sm:text-6xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-white via-amber-200 to-red-500 logo-glow leading-none">
+          SHADOW CLASH
+        </h1>
+        <p class="text-xs sm:text-sm tracking-[0.28em] text-gray-300 uppercase mt-1.5 font-semibold">
+          Gölgelerin Arenası
+        </p>
+      </div>
+
+      <div class="glass-panel rounded-xl px-4 py-2.5 flex items-center gap-4 text-xs interactive">
+        <div>
+          <span class="text-gray-400 block text-[10px] uppercase">Galibiyet</span>
+          <span id="stat-wins" class="font-bold text-amber-400 text-sm">0</span>
+        </div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div>
+          <span class="text-gray-400 block text-[10px] uppercase">En Uzun Kombo</span>
+          <span id="stat-combo" class="font-bold text-red-400 text-sm">0 Vuruş</span>
+        </div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div>
+          <span class="text-gray-400 block text-[10px] uppercase">Hayatta Kalma</span>
+          <span id="stat-survival" class="font-bold text-cyan-400 text-sm">0 Seri</span>
+        </div>
+        <div class="h-6 w-px bg-white/10"></div>
+        <div>
+          <span class="text-gray-400 block text-[10px] uppercase">Başarımlar</span>
+          <span id="stat-achievements" class="font-bold text-purple-400 text-sm">0 / 10</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-col md:flex-row items-end md:items-end justify-between gap-6 my-auto">
+      <div class="w-full sm:w-84 max-w-sm flex flex-col gap-2.5 interactive">
+        <button onclick="app.openCharSelect('versus')" class="btn-clash btn-primary rounded-xl px-5 py-3.5 text-left flex items-center justify-between group">
+          <div>
+            <div class="font-display font-black text-base sm:text-lg tracking-wider text-white">HIZLI MAÇ (1V1)</div>
+            <div class="text-[11px] text-red-200/80">Yapay Zekâya Karşı Tek Maç</div>
+          </div>
+          <span class="text-xl group-hover:translate-x-1 transition-transform">⚔️</span>
+        </button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="app.openCharSelect('arcade')" class="btn-clash rounded-xl px-3.5 py-3 text-left">
+            <div class="font-display font-bold text-xs sm:text-sm text-amber-300">ARCADE KULESİ</div>
+            <div class="text-[10px] text-gray-400">5 Aşama & Kule Rütbesi</div>
+          </button>
+          <button onclick="app.openCharSelect('tournament')" class="btn-clash rounded-xl px-3.5 py-3 text-left">
+            <div class="font-display font-bold text-xs sm:text-sm text-purple-300">TURNUVA</div>
+            <div class="text-[10px] text-gray-400">Şampiyonluk Kupası</div>
+          </button>
+          <button onclick="app.openCharSelect('survival')" class="btn-clash rounded-xl px-3.5 py-3 text-left">
+            <div class="font-display font-bold text-xs sm:text-sm text-emerald-300">HAYATTA KALMA</div>
+            <div class="text-[10px] text-gray-400">Tek Canla Rekor</div>
+          </button>
+          <button onclick="app.openCharSelect('practice')" class="btn-clash rounded-xl px-3.5 py-3 text-left">
+            <div class="font-display font-bold text-xs sm:text-sm text-cyan-300">ANTRENMAN</div>
+            <div class="text-[10px] text-gray-400">Serbest Kombo Dojo</div>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-4 gap-1.5">
+          <button onclick="app.openCharSelect('local2p')" class="btn-clash rounded-xl px-2 py-2.5 text-center">
+            <div class="font-bold text-[11px] text-gray-200">2 OYUNCU</div>
+          </button>
+          <button onclick="app.showModal('achievements-modal')" class="btn-clash rounded-xl px-2 py-2.5 text-center border-amber-500/35">
+            <div class="font-bold text-[11px] text-amber-300">🏆 BAŞARIM</div>
+          </button>
+          <button onclick="app.showModal('roster-modal')" class="btn-clash rounded-xl px-2 py-2.5 text-center">
+            <div class="font-bold text-[11px] text-cyan-200">KÜTÜPHANE</div>
+          </button>
+          <button onclick="app.showModal('settings-modal')" class="btn-clash rounded-xl px-2 py-2.5 text-center">
+            <div class="font-bold text-[11px] text-gray-200">AYARLAR</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="glass-panel rounded-xl p-3.5 text-xs text-gray-300 max-w-xs hidden lg:block interactive">
+        <div class="font-display font-bold text-amber-400 mb-1.5 tracking-wider">HIZLI KONTROLLER</div>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+          <span><b class="text-white">A / D:</b> Hareket</span>
+          <span><b class="text-white">W / SPACE:</b> Zıpla / Atıl</span>
+          <span><b class="text-white">J / K:</b> Hafif / Ağır Yumruk</span>
+          <span><b class="text-white">U / I:</b> Ön / Döner Tekme</span>
+          <span><b class="text-white">L:</b> Blok (Savunma)</span>
+          <span><b class="text-amber-400">Q / E / R:</b> Özel & İmza Güç</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between text-[11px] text-gray-400">
+      <span>Three.js PBR Motoru • Prosedürel Ses & Müzik Sentezleyici</span>
+      <button onclick="app.toggleFullscreen()" class="interactive px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300">
+        ⛶ Tam Ekran
+      </button>
+    </div>
+  </div>
+
+  <!-- KARAKTER SEÇİM EKRANI (ORTA ALAN TAMAMEN AÇIK, YANLARDA KOMPAKT KARTLAR) -->
+  <div id="char-select-screen" class="ui-layer hidden flex-col justify-between p-3 sm:p-5">
+    <!-- Üst Bar: Mod, Zorluk ve Arena -->
+    <div class="flex flex-wrap items-center justify-between gap-2 interactive">
+      <button onclick="app.returnToMenu()" class="btn-clash rounded-xl px-3.5 py-2 text-xs font-bold text-gray-200 flex items-center gap-1.5">
+        <span>← ANA MENÜ</span>
+      </button>
+
+      <div class="glass-panel rounded-xl px-3.5 py-1.5 flex flex-wrap items-center gap-3">
+        <span id="select-mode-badge" class="font-display font-bold text-xs sm:text-sm text-amber-400 tracking-wider">HIZLI MAÇ</span>
+        <div class="h-4 w-px bg-white/15"></div>
+        <div id="practice-options-wrapper" class="hidden items-center gap-2">
+          <label for="practice-dummy-mode" class="text-[11px] text-cyan-300 font-semibold">BOT MODU:</label>
+          <select id="practice-dummy-mode" onchange="app.setPracticeDummyMode(this.value)" class="bg-gray-900 border border-cyan-500/40 rounded-lg px-2 py-1 text-xs font-bold text-cyan-300 outline-none">
+            <option value="idle">Hareketsiz (Pasif)</option>
+            <option value="block" selected>Sürekli Blok</option>
+            <option value="attack">Sürekli Saldırgan</option>
+          </select>
+        </div>
+        <div class="h-4 w-px bg-white/15"></div>
+        <div class="flex items-center gap-1.5">
+          <label for="ai-difficulty-select" class="text-[11px] text-gray-400 font-semibold">ZORLUK:</label>
+          <select id="ai-difficulty-select" onchange="app.setDifficulty(this.value)" class="bg-gray-900 border border-amber-500/40 rounded-lg px-2 py-1 text-xs font-bold text-amber-300 outline-none">
+            <option value="easy">KOLAY (Acemi)</option>
+            <option value="normal" selected>NORMAL (Dengeli)</option>
+            <option value="hard">ZOR (Usta)</option>
+            <option value="expert">UZMAN (Acımasız)</option>
+          </select>
+        </div>
+        <div class="h-4 w-px bg-white/15"></div>
+        <div class="flex items-center gap-1.5">
+          <label for="arena-select" class="text-[11px] text-gray-400 font-semibold">ARENA:</label>
+          <select id="arena-select" onchange="app.selectArena(this.value)" class="bg-gray-900 border border-white/20 rounded-lg px-2 py-1 text-xs font-bold text-cyan-300 outline-none">
+            <option value="ashen_temple">Kül Tapınağı</option>
+            <option value="crimson_fortress">Kızıl Kale</option>
+            <option value="frozen_abyss">Buz Uçurumu</option>
+            <option value="spirit_garden">Ruh Bahçesi</option>
+          </select>
+        </div>
+      </div>
+
+      <button onclick="app.randomizeOpponent()" class="btn-clash rounded-xl px-3.5 py-2 text-xs font-bold text-purple-300 border-purple-500/40">
+        🎲 RASTGELE RAKİP
+      </button>
+    </div>
+
+    <!-- Orta Alan: Sol Kompakt Kart | Boş 3D Sahne | Sağ Kompakt Kart -->
+    <div class="flex items-center justify-between my-auto pointer-events-none px-1 sm:px-2">
+      <!-- Sol P1 Kompakt Kartı -->
+      <div class="glass-panel rounded-xl p-2.5 sm:p-3 w-44 sm:w-52 interactive border-l-4 border-l-cyan-400">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-extrabold tracking-widest text-cyan-400 uppercase">OYUNCU 1</span>
+          <span id="p1-style-tag" class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-200 font-semibold">Alev</span>
+        </div>
+        <h2 id="p1-name" class="font-display font-black text-base sm:text-lg text-white leading-tight">KAIRO</h2>
+        <p id="p1-title" class="text-[10px] text-gray-400 mb-2">Alev Savaşçısı</p>
+
+        <div class="space-y-1 text-[10px]">
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Can</span><span id="p1-stat-hp">100</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden"><div id="p1-bar-hp" class="h-full bg-emerald-400" style="width:80%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Güç</span><span id="p1-stat-pwr">85</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden"><div id="p1-bar-pwr" class="h-full bg-red-400" style="width:85%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span>Hız</span><span id="p1-stat-spd">88</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden"><div id="p1-bar-spd" class="h-full bg-amber-400" style="width:88%"></div></div>
+          </div>
+        </div>
+
+        <div class="mt-2 pt-1.5 border-t border-white/10 text-[9px] text-gray-300 space-y-0.5">
+          <div><b class="text-amber-400">[Q]</b> <span id="p1-sp1">Alev Dalgası</span></div>
+          <div><b class="text-amber-400">[E]</b> <span id="p1-sp2">Kor Atılımı</span></div>
+          <div><b class="text-red-400">[R]</b> <span id="p1-ult">Cehennem Patlaması</span></div>
+        </div>
+      </div>
+
+      <!-- Sağ P2/NPC Kompakt Kartı -->
+      <div class="glass-panel rounded-xl p-2.5 sm:p-3 w-44 sm:w-52 interactive border-r-4 border-r-red-500 text-right">
+        <div class="flex items-center justify-between mb-1">
+          <span id="p2-style-tag" class="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-200 font-semibold">Gölge</span>
+          <span id="p2-role-label" class="text-[10px] font-extrabold tracking-widest text-red-400 uppercase">RAKİP (YZ)</span>
+        </div>
+        <h2 id="p2-name" class="font-display font-black text-base sm:text-lg text-white leading-tight">VESPER</h2>
+        <p id="p2-title" class="text-[10px] text-gray-400 mb-2">Gölge Suikastçısı</p>
+
+        <div class="space-y-1 text-[10px]">
+          <div>
+            <div class="flex justify-between text-gray-300"><span id="p2-stat-hp">90</span><span>Can</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden flex justify-end"><div id="p2-bar-hp" class="h-full bg-emerald-400" style="width:72%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span id="p2-stat-pwr">80</span><span>Güç</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden flex justify-end"><div id="p2-bar-pwr" class="h-full bg-red-400" style="width:80%"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-gray-300"><span id="p2-stat-spd">98</span><span>Hız</span></div>
+            <div class="w-full h-1 bg-gray-800 rounded-full overflow-hidden flex justify-end"><div id="p2-bar-spd" class="h-full bg-amber-400" style="width:98%"></div></div>
+          </div>
+        </div>
+
+        <div class="mt-2 pt-1.5 border-t border-white/10 text-[9px] text-gray-300 space-y-0.5">
+          <div><span id="p2-sp1">Gölge Geçişi</span> <b class="text-amber-400">[Q]</b></div>
+          <div><span id="p2-sp2">Karanlık Kesik</span> <b class="text-amber-400">[E]</b></div>
+          <div><span id="p2-ult">Hiçlik Suikastı</span> <b class="text-red-400">[R]</b></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alt Karakter Seçim Izgarası + Başlat -->
+    <div class="flex flex-col items-center gap-2.5 interactive">
+      <div class="flex items-center gap-2 text-[11px]">
+        <button id="select-target-p1" onclick="app.setSelectTarget(1)" class="px-3 py-1 rounded-lg bg-cyan-500/25 border border-cyan-400 text-cyan-200 font-bold">
+          1. Oyuncu Seçimi
+        </button>
+        <button id="select-target-p2" onclick="app.setSelectTarget(2)" class="px-3 py-1 rounded-lg bg-white/5 border border-white/15 text-gray-300 font-bold">
+          Rakip Seçimi
+        </button>
+      </div>
+
+      <div id="roster-grid" class="grid grid-cols-5 sm:grid-cols-10 gap-1.5 sm:gap-2 max-w-5xl w-full"></div>
+
+      <button onclick="app.startMatch()" class="btn-clash btn-primary rounded-xl px-10 py-3 font-display font-black text-base sm:text-lg tracking-widest text-white">
+        ⚔️ DÖVÜŞÜ BAŞLAT
+      </button>
+    </div>
+  </div>
+
+  <!-- DÖVÜŞ HUD EKRANI -->
+  <div id="fight-hud" class="ui-layer hidden flex-col justify-between p-3 sm:p-5">
+    <!-- Üst Can ve Enerji Barları -->
+    <div class="w-full max-w-6xl mx-auto">
+      <div class="grid grid-cols-11 items-center gap-2">
+        <!-- P1 Bar -->
+        <div class="col-span-5">
+          <div class="flex items-end justify-between mb-1">
+            <div class="flex items-center gap-2">
+              <span id="hud-p1-name" class="font-display font-black text-sm sm:text-lg text-white tracking-wider">KAIRO</span>
+              <div id="hud-p1-rounds" class="flex gap-1"></div>
+            </div>
+            <span id="hud-p1-hp-text" class="text-xs font-bold text-emerald-300">1000</span>
+          </div>
+          <div class="w-full h-4 sm:h-5 bg-gray-950/90 rounded-lg p-0.5 border border-white/20 relative overflow-hidden">
+            <div id="hud-p1-hp-lag" class="absolute top-0.5 bottom-0.5 left-0.5 bg-red-500/80 rounded transition-all duration-300" style="width: 100%"></div>
+            <div id="hud-p1-hp" class="relative h-full bg-gradient-to-r from-emerald-500 via-green-400 to-cyan-300 rounded transition-all duration-100" style="width: 100%"></div>
+          </div>
+          <div class="flex items-center justify-between mt-1 gap-2">
+            <div class="w-2/3 h-2 bg-gray-950/90 rounded-full overflow-hidden border border-white/15">
+              <div id="hud-p1-energy" class="h-full bg-gradient-to-r from-amber-500 to-yellow-300 transition-all duration-150" style="width: 30%"></div>
+            </div>
+            <span class="text-[10px] font-bold text-amber-300">ENERJİ</span>
+          </div>
+        </div>
+
+        <!-- Orta Sayaç ve Raund -->
+        <div class="col-span-1 flex flex-col items-center justify-center">
+          <span id="hud-round-label" class="text-[9px] sm:text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">RAUND 1</span>
+          <div class="glass-panel rounded-xl px-2.5 py-1 border-amber-500/40">
+            <span id="hud-timer" class="font-display font-black text-xl sm:text-3xl text-white">99</span>
+          </div>
+        </div>
+
+        <!-- P2 Bar -->
+        <div class="col-span-5">
+          <div class="flex items-end justify-between mb-1">
+            <span id="hud-p2-hp-text" class="text-xs font-bold text-emerald-300">1000</span>
+            <div class="flex items-center gap-2">
+              <div id="hud-p2-rounds" class="flex gap-1"></div>
+              <span id="hud-p2-name" class="font-display font-black text-sm sm:text-lg text-white tracking-wider">VESPER</span>
+            </div>
+          </div>
+          <div class="w-full h-4 sm:h-5 bg-gray-950/90 rounded-lg p-0.5 border border-white/20 relative overflow-hidden flex justify-end">
+            <div id="hud-p2-hp-lag" class="absolute top-0.5 bottom-0.5 right-0.5 bg-red-500/80 rounded transition-all duration-300" style="width: 100%"></div>
+            <div id="hud-p2-hp" class="relative h-full bg-gradient-to-l from-emerald-500 via-green-400 to-cyan-300 rounded transition-all duration-100" style="width: 100%"></div>
+          </div>
+          <div class="flex items-center justify-between mt-1 gap-2">
+            <span class="text-[10px] font-bold text-amber-300">ENERJİ</span>
+            <div class="w-2/3 h-2 bg-gray-950/90 rounded-full overflow-hidden border border-white/15 flex justify-end">
+              <div id="hud-p2-energy" class="h-full bg-gradient-to-l from-amber-500 to-yellow-300 transition-all duration-150" style="width: 30%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orta Anons & Kombo Göstergeleri -->
+    <div class="relative flex-1 flex items-center justify-between px-4 sm:px-10">
+      <!-- P1 Kombo -->
+      <div id="p1-combo-box" class="opacity-0 transition-opacity duration-200">
+        <div class="font-display font-black text-3xl sm:text-5xl text-amber-400 drop-shadow-[0_4px_12px_rgba(245,158,11,0.75)]">
+          <span id="p1-combo-count">2</span> VURUŞ
+        </div>
+        <div class="font-display font-extrabold text-sm sm:text-base tracking-widest text-white">KOMBO!</div>
+        <div id="p1-combo-dmg" class="text-xs font-bold text-red-300">120 Hasar</div>
+      </div>
+
+      <!-- Merkez Büyük Spiker Anonsu -->
+      <div id="center-announcer" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"></div>
+
+      <!-- P2 Kombo -->
+      <div id="p2-combo-box" class="opacity-0 transition-opacity duration-200 text-right">
+        <div class="font-display font-black text-3xl sm:text-5xl text-red-400 drop-shadow-[0_4px_12px_rgba(239,68,68,0.75)]">
+          <span id="p2-combo-count">2</span> VURUŞ
+        </div>
+        <div class="font-display font-extrabold text-sm sm:text-base tracking-widest text-white">KOMBO!</div>
+        <div id="p2-combo-dmg" class="text-xs font-bold text-amber-300">120 Hasar</div>
+      </div>
+    </div>
+
+    <!-- AKILLI MOBİL DOKUNMATİK KONTROLLER (SADECE TELEFON/TABLETTE GÖRÜNÜR) -->
+    <div id="mobile-touch-controls" class="hidden items-end justify-between px-2 pb-2 interactive">
+      <!-- Sol Yön Tuşları -->
+      <div class="grid grid-cols-3 gap-1.5 w-36 h-36">
+        <div></div>
+        <button data-touch-key="KeyW" class="touch-btn rounded-xl flex items-center justify-center text-white font-black text-lg">▲</button>
+        <div></div>
+        <button data-touch-key="KeyA" class="touch-btn rounded-xl flex items-center justify-center text-white font-black text-lg">◀</button>
+        <button data-touch-key="KeyL" class="touch-btn rounded-xl flex items-center justify-center text-cyan-300 font-extrabold text-[10px]">BLOK</button>
+        <button data-touch-key="KeyD" class="touch-btn rounded-xl flex items-center justify-center text-white font-black text-lg">▶</button>
+        <div></div>
+        <button data-touch-key="KeyS" class="touch-btn rounded-xl flex items-center justify-center text-gray-300 font-black text-sm">▼</button>
+        <div></div>
+      </div>
+
+      <!-- Sağ Saldırı ve Özel Güç Tuşları -->
+      <div class="flex flex-col items-end gap-2">
+        <div class="flex gap-2">
+          <button data-touch-key="KeyQ" class="touch-btn w-12 h-11 rounded-xl font-display font-black text-xs text-amber-300">Q<span class="block text-[8px] font-sans text-gray-300">ÖZEL 1</span></button>
+          <button data-touch-key="KeyE" class="touch-btn w-12 h-11 rounded-xl font-display font-black text-xs text-amber-300">E<span class="block text-[8px] font-sans text-gray-300">ÖZEL 2</span></button>
+          <button data-touch-key="KeyR" class="touch-btn w-13 h-11 px-2 rounded-xl font-display font-black text-xs text-red-400 border-red-500/60">R<span class="block text-[8px] font-sans text-red-200">İMZA</span></button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button data-touch-key="KeyJ" class="touch-btn w-14 h-13 py-2 rounded-2xl font-bold text-xs text-white">H.YUMRUK</button>
+          <button data-touch-key="KeyK" class="touch-btn w-14 h-13 py-2 rounded-2xl font-bold text-xs text-amber-200">A.YUMRUK</button>
+          <button data-touch-key="KeyU" class="touch-btn w-14 h-13 py-2 rounded-2xl font-bold text-xs text-cyan-200">Ö.TEKME</button>
+          <button data-touch-key="KeyI" class="touch-btn w-14 h-13 py-2 rounded-2xl font-bold text-xs text-purple-200">D.TEKME</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alt Tuş Rehberi ve Duraklat -->
+    <div class="flex items-center justify-between gap-2 text-[10px] sm:text-xs">
+      <div id="pc-key-guide" class="glass-panel rounded-xl px-3 py-1.5 flex flex-wrap items-center gap-3 text-gray-300">
+        <span><b class="text-white">[A/D]</b> Yürü</span>
+        <span><b class="text-white">[W/Space]</b> Zıpla</span>
+        <span><b class="text-white">[S]</b> Eğil</span>
+        <span><b class="text-white">[J]</b> H.Yumruk</span>
+        <span><b class="text-white">[K]</b> A.Yumruk</span>
+        <span><b class="text-white">[U]</b> Ön Tekme</span>
+        <span><b class="text-white">[I]</b> Döner Tekme</span>
+        <span><b class="text-cyan-300">[L]</b> Blok</span>
+        <span><b class="text-amber-300">[Q]</b> Özel 1 (30)</span>
+        <span><b class="text-amber-300">[E]</b> Özel 2 (45)</span>
+        <span><b class="text-red-400">[R]</b> İmza (100)</span>
+      </div>
+
+      <button onclick="app.togglePause()" class="interactive btn-clash rounded-xl px-3.5 py-2 font-bold text-gray-200 ml-auto">
+        ⏸ DURAKLAT [ESC]
+      </button>
+    </div>
+  </div>
+
+  <!-- DURAKLATMA MENÜSÜ -->
+  <div id="pause-modal" class="ui-layer hidden items-center justify-center bg-black/75 interactive">
+    <div class="glass-panel rounded-2xl p-6 w-80 text-center space-y-3">
+      <h2 class="font-display font-black text-2xl text-amber-400 tracking-wider">OYUN DURAKLATILDI</h2>
+      <p class="text-xs text-gray-400">Dövüşe devam edebilir veya menüye dönebilirsin.</p>
+        <div class="space-y-2 pt-2">
+          <button onclick="app.togglePause()" class="btn-clash btn-primary w-full rounded-xl py-2.5 font-bold text-sm text-white">▶ DEVAM ET</button>
+          <button onclick="app.restartMatch()" class="btn-clash w-full rounded-xl py-2.5 font-bold text-sm text-amber-300">↻ MAÇI YENİDEN BAŞLAT</button>
+          <button onclick="app.openCharSelect(app.gameMode)" class="btn-clash w-full rounded-xl py-2.5 font-bold text-sm text-gray-200">⚔️ KARAKTER DEĞİŞTİR</button>
+          <button onclick="app.returnToMenu()" class="btn-clash w-full rounded-xl py-2.5 font-bold text-sm text-gray-400">⌂ ANA MENÜ</button>
+        </div>
+      </div>
+    </div>
+
+  <!-- MAÇ SONUCU EKRANI -->
+  <div id="result-modal" class="ui-layer hidden items-center justify-center bg-black/70 interactive">
+    <div class="glass-panel rounded-2xl p-6 sm:p-8 max-w-md w-full mx-4 text-center border-amber-500/40">
+      <div id="result-badge" class="inline-block px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-extrabold tracking-widest mb-2">
+        MAÇ TAMAMLANDI
+      </div>
+      <h2 id="result-title" class="font-display font-black text-3xl sm:text-4xl text-white tracking-wider mb-1">ZAFER!</h2>
+      <p id="result-subtitle" class="text-xs text-gray-300 mb-5">Kairo arenanın mutlak hâkimi oldu.</p>
+
+      <div class="grid grid-cols-3 gap-2 bg-black/40 rounded-xl p-3 border border-white/10 mb-5 text-xs">
+        <div>
+          <span class="text-gray-400 block text-[10px]">TOPLAM HASAR</span>
+          <span id="res-damage" class="font-bold text-red-400 text-sm">0</span>
+        </div>
+        <div>
+          <span class="text-gray-400 block text-[10px]">MAKS. KOMBO</span>
+          <span id="res-combo" class="font-bold text-amber-400 text-sm">0 Vuruş</span>
+        </div>
+        <div>
+          <span class="text-gray-400 block text-[10px]">MAÇ SÜRESİ</span>
+          <span id="res-time" class="font-bold text-cyan-400 text-sm">0s</span>
+        </div>
+      </div>
+
+      <div class="space-y-2">
+        <button id="btn-next-stage" onclick="app.nextStage()" class="hidden btn-clash btn-primary w-full rounded-xl py-3 font-display font-black text-sm tracking-wider text-white">
+          SONRAKİ RAKİBE GEÇ (<span id="stage-counter">Aşama 1 / 5</span>) →
+        </button>
+        <button onclick="app.restartMatch()" class="btn-clash btn-primary w-full rounded-xl py-2.5 font-bold text-sm text-white">
+          ↻ YENİDEN OYNA (YENİ RAKİP)
+        </button>
+        <button onclick="app.openCharSelect(app.gameMode)" class="btn-clash w-full rounded-xl py-2.5 font-bold text-sm text-amber-300">
+          ⚔️ KARAKTER SEÇİMİ
+        </button>
+        <button onclick="app.returnToMenu()" class="btn-clash w-full rounded-xl py-2.5 font-bold text-sm text-gray-300">
+          ⌂ ANA MENÜ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVAŞÇI KÜTÜPHANESİ MODALI -->
+  <div id="roster-modal" class="ui-layer hidden items-center justify-center bg-black/80 interactive p-4">
+    <div class="glass-panel rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h2 class="font-display font-black text-xl sm:text-2xl text-amber-400">SAVAŞÇI KÜTÜPHANESİ (10 EFSANE)</h2>
+        <button onclick="app.closeModals()" class="btn-clash rounded-lg px-3 py-1 text-xs font-bold">✕ KAPAT</button>
+      </div>
+      <div id="lore-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 overflow-y-auto pt-4 pr-1"></div>
+    </div>
+  </div>
+
+  <!-- BAŞARIMLAR MODALI -->
+  <div id="achievements-modal" class="ui-layer hidden items-center justify-center bg-black/80 interactive p-4">
+    <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full max-h-[85vh] flex flex-col border-amber-500/35">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <div>
+          <h2 class="font-display font-black text-xl sm:text-2xl text-amber-400">🏆 BAŞARIMLAR</h2>
+          <p id="ach-modal-summary" class="text-xs text-gray-400">0 / 10 Başarım Açıldı</p>
+        </div>
+        <button onclick="app.closeModals()" class="btn-clash rounded-lg px-3 py-1 text-xs font-bold">✕ KAPAT</button>
+      </div>
+      <div id="achievements-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 overflow-y-auto pt-4 pr-1"></div>
+    </div>
+  </div>
+
+  <!-- AYARLAR MODALI -->
+  <div id="settings-modal" class="ui-layer hidden items-center justify-center bg-black/80 interactive p-4">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-white/10">
+        <h2 class="font-display font-black text-xl text-amber-400">OYUN AYARLARI</h2>
+        <button onclick="app.closeModals()" class="btn-clash rounded-lg px-3 py-1 text-xs font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <div class="flex justify-between mb-1"><span class="text-gray-300 font-semibold">Ses Efektleri & Spiker</span><span id="sfx-val" class="text-amber-400 font-bold">80%</span></div>
+          <input type="range" min="0" max="100" value="80" oninput="app.setSfxVolume(this.value)" class="w-full accent-amber-500">
+        </div>
+        <div>
+          <div class="flex justify-between mb-1"><span class="text-gray-300 font-semibold">Dinamik Savaş Müziği</span><span id="bgm-val" class="text-amber-400 font-bold">55%</span></div>
+          <input type="range" min="0" max="100" value="55" oninput="app.setBgmVolume(this.value)" class="w-full accent-amber-500">
+        </div>
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Kontrol Modu (Cihaz Algılama)</label>
+          <select id="control-mode-select" onchange="app.setControlMode(this.value)" class="w-full bg-gray-900 border border-amber-500/35 rounded-xl px-3 py-2 text-amber-300 font-bold">
+            <option value="auto" selected>Otomatik (PC'de Klavye / Telefonda Dokunmatik)</option>
+            <option value="pc">Sadece PC Klavye (Dokunmatik Gizli)</option>
+            <option value="touch">Dokunmatik Ekran Kontrolleri</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-300 font-semibold mb-1">Grafik Kalitesi</label>
+          <select id="gfx-quality" onchange="app.setGraphicsQuality(this.value)" class="w-full bg-gray-900 border border-white/20 rounded-xl px-3 py-2 text-white font-bold">
+            <option value="low">Düşük (Yüksek FPS)</option>
+            <option value="medium">Orta (Dengeli Gölgeler)</option>
+            <option value="high" selected>Yüksek (Tam PBR & Sinematik)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-white/10 flex justify-between items-center">
+        <button onclick="app.resetProgress()" class="text-xs text-red-400 hover:underline">İlerlemeyi Sıfırla</button>
+        <button onclick="app.closeModals()" class="btn-clash btn-primary rounded-xl px-5 py-2 text-xs font-bold text-white">KAYDET</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const THREE = window.THREE;
+
+    // =========================================================================
+    // 1. SAVAŞÇI KADROSU (9 ÖZGÜN KARAKTER) & ARENA VERİLERİ
+    // =========================================================================
+    const CHARACTER_ROSTER = [
+      {
+        id: 'kairo', name: 'KAIRO', title: 'Alev Savaşçısı', element: 'Alev',
+        bio: 'Kadim yanardağ tapınağında yetişen Kairo, yakın mesafe baskısı ve yakıcı kombolarıyla rakiplerini bunaltır.',
+        colors: { skin: 0xd99b78, primary: 0x991b1b, secondary: 0x1f2430, accent: 0xf97316, glow: 0xff5500 },
+        proportions: { height: 1.0, bulk: 1.02, shoulder: 1.05 },
+        weapon: 'flame_gauntlets',
+        stats: { hp: 1000, power: 86, speed: 88, defense: 82, reach: 1.0 },
+        specials: {
+          sp1: { name: 'Alev Dalgası', cost: 30, dmg: 115, range: 3.4, color: 0xff5500 },
+          sp2: { name: 'Kor Atılımı', cost: 45, dmg: 145, range: 2.8, dash: 2.2, color: 0xf97316 },
+          ult: { name: 'Cehennem Patlaması', cost: 100, dmg: 290, range: 3.8, color: 0xff2200 }
+        }
+      },
+      {
+        id: 'vesper', name: 'VESPER', title: 'Gölge Suikastçısı', element: 'Gölge',
+        bio: 'Karanlık tarikatın en hızlı suikastçısı. Gölgelerin arasından süzülerek beklenmedik açılardan saldırır.',
+        colors: { skin: 0xc8a696, primary: 0x3b0764, secondary: 0x11131a, accent: 0xa855f7, glow: 0xc084fc },
+        proportions: { height: 0.97, bulk: 0.88, shoulder: 0.94 },
+        weapon: 'shadow_blades',
+        stats: { hp: 920, power: 82, speed: 98, defense: 76, reach: 0.98 },
+        specials: {
+          sp1: { name: 'Gölge Geçişi', cost: 30, dmg: 105, range: 3.2, dash: 2.6, color: 0xa855f7 },
+          sp2: { name: 'Karanlık Kesik', cost: 45, dmg: 140, range: 2.5, color: 0x7e22ce },
+          ult: { name: 'Hiçlik Suikastı', cost: 100, dmg: 275, range: 3.6, dash: 2.8, color: 0xd8b4fe }
+        }
+      },
+      {
+        id: 'orion', name: 'ORION', title: 'Fırtına Muhafızı', element: 'Yıldırım',
+        bio: 'Gökyüzü kalesinin zırhlı koruyucusu. Elektrik yüklü karşı saldırılarıyla rakibin dengesini bozar.',
+        colors: { skin: 0xd19c7d, primary: 0x1e3a8a, secondary: 0x334155, accent: 0x38bdf8, glow: 0x7dd3fc },
+        proportions: { height: 1.03, bulk: 1.08, shoulder: 1.12 },
+        weapon: 'storm_halo',
+        stats: { hp: 1060, power: 88, speed: 80, defense: 90, reach: 1.04 },
+        specials: {
+          sp1: { name: 'Yıldırım Mızrağı', cost: 30, dmg: 120, range: 3.8, color: 0x38bdf8 },
+          sp2: { name: 'Şok Kalkanı', cost: 45, dmg: 145, range: 2.6, color: 0x0284c7 },
+          ult: { name: 'Fırtına Gazabı', cost: 100, dmg: 300, range: 4.0, color: 0xbae6fd }
+        }
+      },
+      {
+        id: 'brutus', name: 'BRUTUS', title: 'Demir Dev', element: 'Toprak',
+        bio: 'Ağır çelik plakalarla kaplı durdurulamaz güç. Tek bir darbesiyle arenayı sarsar.',
+        colors: { skin: 0xb8866b, primary: 0x44403c, secondary: 0x292524, accent: 0xd97706, glow: 0xf59e0b },
+        proportions: { height: 1.09, bulk: 1.25, shoulder: 1.24 },
+        weapon: 'iron_pauldrons',
+        stats: { hp: 1200, power: 98, speed: 68, defense: 96, reach: 1.1 },
+        specials: {
+          sp1: { name: 'Sismik Yumruk', cost: 30, dmg: 135, range: 2.9, color: 0xd97706 },
+          sp2: { name: 'Demir Ezici', cost: 45, dmg: 165, range: 2.5, dash: 1.6, color: 0xb45309 },
+          ult: { name: 'Kıyamet Sarsıntısı', cost: 100, dmg: 330, range: 3.8, color: 0xfbbf24 }
+        }
+      },
+      {
+        id: 'nyra', name: 'NYRA', title: 'Buz Avcısı', element: 'Buz',
+        bio: 'Kuzey buzullarının çevik savaşçısı. Keskin tekmeleri ve dondurucu kristalleriyle mesafeyi kontrol eder.',
+        colors: { skin: 0xe2c6b8, primary: 0x0e7490, secondary: 0x1e293b, accent: 0x67e8f9, glow: 0xa5f3fc },
+        proportions: { height: 0.98, bulk: 0.9, shoulder: 0.95 },
+        weapon: 'frost_crown',
+        stats: { hp: 950, power: 84, speed: 93, defense: 80, reach: 1.03 },
+        specials: {
+          sp1: { name: 'Buzul Mızrakları', cost: 30, dmg: 115, range: 3.9, color: 0x67e8f9 },
+          sp2: { name: 'Kristal Kasırga', cost: 45, dmg: 145, range: 2.7, color: 0x06b6d4 },
+          ult: { name: 'Mutlak Sıfır', cost: 100, dmg: 285, range: 3.9, color: 0xcffafe }
+        }
+      },
+      {
+        id: 'raven', name: 'RAVEN', title: 'Ruh Büyücüsü', element: 'Ruh',
+        bio: 'Kadim ruh enerjisine hükmeden gizemli büyücü. Etrafında dönen ruh küreleriyle rakiplerini uzak tutar.',
+        colors: { skin: 0xc9b1a3, primary: 0x115e59, secondary: 0x18181b, accent: 0x2dd4bf, glow: 0x5eead4 },
+        proportions: { height: 1.01, bulk: 0.95, shoulder: 0.98 },
+        weapon: 'soul_orbs',
+        stats: { hp: 980, power: 89, speed: 85, defense: 84, reach: 1.06 },
+        specials: {
+          sp1: { name: 'Ruh Küresi', cost: 30, dmg: 120, range: 4.1, color: 0x2dd4bf },
+          sp2: { name: 'Hayalet Darbe', cost: 45, dmg: 145, range: 2.8, color: 0x14b8a6 },
+          ult: { name: 'Ruh Hasadı', cost: 100, dmg: 295, range: 4.0, color: 0x99f6e4 }
+        }
+      },
+      {
+        id: 'kenshin', name: 'KENSHIN', title: 'Siber Samuray', element: 'Plazma',
+        bio: 'Geleceğin siber zırhıyla donanmış kılıç ustası. Yüksek frekanslı plazma katanasıyla ışık hızında kesikler atar.',
+        colors: { skin: 0xd8a88c, primary: 0xbe123c, secondary: 0x0f172a, accent: 0xf43f5e, glow: 0xfb7185 },
+        proportions: { height: 1.02, bulk: 0.96, shoulder: 1.04 },
+        weapon: 'plasma_katana',
+        stats: { hp: 970, power: 91, speed: 95, defense: 81, reach: 1.14 },
+        specials: {
+          sp1: { name: 'Plazma Hilali', cost: 30, dmg: 125, range: 3.6, color: 0xf43f5e },
+          sp2: { name: 'Işık Kılıcı Atılımı', cost: 45, dmg: 155, range: 3.1, dash: 2.5, color: 0xe11d48 },
+          ult: { name: 'Ejderha Kesisi', cost: 100, dmg: 310, range: 3.9, dash: 2.4, color: 0xffccd5 }
+        }
+      },
+      {
+        id: 'chronos', name: 'CHRONOS', title: 'Zaman Büyücüsü', element: 'Zaman',
+        bio: 'Sırtındaki altın usturlap halkalarıyla zamanın akışını büken bilge savaşçı.',
+        colors: { skin: 0xcfa488, primary: 0x4338ca, secondary: 0x1e1b4b, accent: 0xfbbf24, glow: 0xfde047 },
+        proportions: { height: 1.02, bulk: 0.97, shoulder: 1.02 },
+        weapon: 'time_rings',
+        stats: { hp: 990, power: 87, speed: 89, defense: 86, reach: 1.05 },
+        specials: {
+          sp1: { name: 'Zaman Darbesi', cost: 30, dmg: 118, range: 3.7, color: 0xfbbf24 },
+          sp2: { name: 'Kronos Sıçraması', cost: 45, dmg: 148, range: 2.9, dash: 2.3, color: 0x818cf8 },
+          ult: { name: 'Sonsuzluk Döngüsü', cost: 100, dmg: 300, range: 4.0, color: 0xfef08a }
+        }
+      },
+      {
+        id: 'valkyria', name: 'VALKYRIA', title: 'Güneş Hükümdarı', element: 'Güneş',
+        bio: 'Işık kanatları ve güneş halesiyle arenaya inen göksel savaşçı. Hem havada hem yerde ölümcüldür.',
+        colors: { skin: 0xe5bfa8, primary: 0xb45309, secondary: 0xf8fafc, accent: 0xfacc15, glow: 0xfef9c3 },
+        proportions: { height: 1.04, bulk: 0.94, shoulder: 1.03 },
+        weapon: 'solar_wings',
+        stats: { hp: 1010, power: 90, speed: 92, defense: 85, reach: 1.08 },
+        specials: {
+          sp1: { name: 'Güneş Işını', cost: 30, dmg: 122, range: 3.9, color: 0xfacc15 },
+          sp2: { name: 'Göksel Kanat Darbesi', cost: 45, dmg: 150, range: 2.9, dash: 2.1, color: 0xf59e0b },
+          ult: { name: 'Süpernova Hükmü', cost: 100, dmg: 315, range: 4.2, color: 0xffffff }
+        }
+      },
+      {
+        id: 'draven', name: 'DRAVEN', title: 'Ejderha Şövalyesi', element: 'Ejder Ateşi',
+        bio: 'Kadim ejderha pullarından dövülmüş zırhı ve magma rünlü dev kılıcı "Ejder Dişi" ile arenayı yakıp yıkan efsanevi şövalye.',
+        colors: { skin: 0xc99679, primary: 0x7f1d1d, secondary: 0x141419, accent: 0xf59e0b, glow: 0xff4500 },
+        proportions: { height: 1.07, bulk: 1.15, shoulder: 1.18 },
+        weapon: 'dragon_greatsword',
+        stats: { hp: 1120, power: 95, speed: 83, defense: 92, reach: 1.18 },
+        specials: {
+          sp1: { name: 'Ejder Nefesi', cost: 30, dmg: 128, range: 3.7, color: 0xff4500 },
+          sp2: { name: 'Gökyüzü Yarığı', cost: 45, dmg: 162, range: 3.1, dash: 2.3, color: 0xf97316 },
+          ult: { name: 'Kadim Ejder Öfkesi', cost: 100, dmg: 335, range: 4.1, dash: 2.0, color: 0xffb703 }
+        }
+      }
+    ];
+
+    const ACHIEVEMENTS_DEF = [
+      { id: 'first_win', title: 'İlk Kan', desc: 'İlk maçını kazanarak arenaya adını yazdır.', icon: '⚔️', goal: 1, key: 'wins' },
+      { id: 'combo_3', title: 'Acımasız', desc: 'Tek seferde 3 veya daha fazla vuruşluk kombo yap.', icon: '🔥', goal: 3, key: 'maxCombo' },
+      { id: 'combo_5', title: 'Durdurulamaz', desc: 'Tek seferde 5 veya daha fazla vuruşluk kombo yap.', icon: '⚡', goal: 5, key: 'maxCombo' },
+      { id: 'flawless', title: 'Kusursuz Zafer', desc: 'Hiç hasar almadan bir raund kazan.', icon: '👑', goal: 1, key: 'flawlessCount' },
+      { id: 'expert_slayer', title: 'Efsane Avcısı', desc: 'Uzman (Expert) zorluk seviyesinde bir maç kazan.', icon: '💀', goal: 1, key: 'expertWins' },
+      { id: 'dragon_tamer', title: 'Ejderha Terbiyecisi', desc: 'Ejderha Şövalyesi Draven ile maç kazan.', icon: '🐉', goal: 1, key: 'dravenWins' },
+      { id: 'arcade_king', title: 'Kule Fatihi', desc: 'Arcade Kulesi modunda en az 3 rakip devir.', icon: '🏰', goal: 3, key: 'arcadeBest' },
+      { id: 'survivor_3', title: 'Hayatta Kalan', desc: 'Hayatta Kalma modunda 3 galibiyet serisine ulaş.', icon: '🛡️', goal: 3, key: 'bestSurvival' },
+      { id: 'collector_5', title: 'Savaşçı Ustası', desc: '5 farklı karakterle galibiyet elde et.', icon: '🎭', goal: 5, key: 'uniqueWinsCount' },
+      { id: 'veteran_10', title: 'Arena Efsanesi', desc: 'Toplam 10 maç kazan.', icon: '🏆', goal: 10, key: 'wins' }
+    ];
+
+    const ARENAS = {
+      ashen_temple: {
+        name: 'Kül Tapınağı',
+        sky: 0x16110e, fog: 0x1d1410,
+        floorPrimary: 0x2b2420, floorAccent: 0xea580c,
+        keyLight: 0xffedd5, fillLight: 0xf97316, rimLight: 0xef4444,
+        particleColor: 0xfb923c, pillarColor: 0x3f3530
+      },
+      crimson_fortress: {
+        name: 'Kızıl Kale',
+        sky: 0x14090d, fog: 0x1c0b12,
+        floorPrimary: 0x23171d, floorAccent: 0xdc2626,
+        keyLight: 0xfecdd3, fillLight: 0xe11d48, rimLight: 0x9333ea,
+        particleColor: 0xf43f5e, pillarColor: 0x311d26
+      },
+      frozen_abyss: {
+        name: 'Buz Uçurumu',
+        sky: 0x09131d, fog: 0x0d1d2c,
+        floorPrimary: 0x172b3a, floorAccent: 0x38bdf8,
+        keyLight: 0xe0f2fe, fillLight: 0x0284c7, rimLight: 0x22d3ee,
+        particleColor: 0xbae6fd, pillarColor: 0x1e3a4c
+      },
+      spirit_garden: {
+        name: 'Ruh Bahçesi',
+        sky: 0x081514, fog: 0x0c211f,
+        floorPrimary: 0x152926, floorAccent: 0x2dd4bf,
+        keyLight: 0xccfbf1, fillLight: 0x0d9488, rimLight: 0x34d399,
+        particleColor: 0x5eead4, pillarColor: 0x1d3834
+      }
+    };
+
+    // =========================================================================
+    // 2. PROSEDÜREL PBR DOKU ÜRETİCİSİ (Metal, Kumaş, Taş/Buz Madalyon)
+    // =========================================================================
+    class ProceduralTextures {
+      static createBumpMap(type = 'metal') {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256; canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, 256, 256);
+
+        if (type === 'metal') {
+          for (let i = 0; i < 600; i++) {
+            const y = Math.random() * 256;
+            ctx.strokeStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.12)';
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
+          }
+        } else if (type === 'fabric') {
+          ctx.fillStyle = 'rgba(255,255,255,0.06)';
+          for (let x = 0; x < 256; x += 4) ctx.fillRect(x, 0, 1, 256);
+          for (let y = 0; y < 256; y += 4) ctx.fillRect(0, y, 256, 1);
+        } else {
+          for (let i = 0; i < 900; i++) {
+            const x = Math.random() * 256, y = Math.random() * 256, r = 1 + Math.random() * 3;
+            ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.14)';
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+      }
+
+      static createArenaFloorTexture(baseHex, accentHex) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512; canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        const cBase = '#' + new THREE.Color(baseHex).getHexString();
+        const cAcc = '#' + new THREE.Color(accentHex).getHexString();
+
+        ctx.fillStyle = cBase;
+        ctx.fillRect(0, 0, 512, 512);
+
+        // Taş/Karo çizgileri
+        ctx.strokeStyle = 'rgba(0,0,0,0.42)';
+        ctx.lineWidth = 3;
+        for (let i = 0; i <= 512; i += 64) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 512); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke();
+        }
+
+        // Merkez Antik Dövüş Madalyonu
+        ctx.save();
+        ctx.translate(256, 256);
+        ctx.strokeStyle = cAcc;
+        ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.arc(0, 0, 175, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(0, 0, 145, 0, Math.PI * 2); ctx.stroke();
+
+        for (let a = 0; a < 8; a++) {
+          ctx.rotate(Math.PI / 4);
+          ctx.beginPath(); ctx.moveTo(145, 0); ctx.lineTo(175, 0); ctx.stroke();
+        }
+        ctx.restore();
+
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.anisotropy = 4;
+        return tex;
+      }
+    }
+
+    // =========================================================================
+    // 3. WEB AUDIO SES, DİNAMİK SAVAŞ MÜZİĞİ VE TÜRKÇE SPİKER SİSTEMİ
+    // =========================================================================
+    class AudioManager {
+      constructor() {
+        this.ctx = null;
+        this.sfxVol = 0.8;
+        this.bgmVol = 0.55;
+        this.bgmTimer = null;
+        this.bgmStep = 0;
+        this.inCombat = false;
+        this.intenseMode = false;
+      }
+
+      unlock() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      startBattleBgm() {
+        this.inCombat = true;
+        if (this.bgmTimer) clearInterval(this.bgmTimer);
+        this.bgmStep = 0;
+        this.bgmTimer = setInterval(() => {
+          if (!this.inCombat || !this.ctx || this.bgmVol <= 0.01) return;
+          this.playBgmBeat(this.bgmStep++);
+        }, 230);
+      }
+
+      stopBattleBgm() {
+        this.inCombat = false;
+        if (this.bgmTimer) {
+          clearInterval(this.bgmTimer);
+          this.bgmTimer = null;
+        }
+      }
+
+      playBgmBeat(step) {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const vol = this.bgmVol * 0.22;
+        const pattern = [55, 55, 65.41, 55, 73.42, 65.41, 49, 55];
+        const freq = pattern[step % pattern.length] * (this.intenseMode ? 1.12 : 1.0);
+
+        // Savaş Davulu (Kick)
+        if (step % 2 === 0 || (this.intenseMode && step % 4 === 3)) {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(115, now);
+          osc.frequency.exponentialRampToValueAtTime(36, now + 0.14);
+          gain.gain.setValueAtTime(vol * 1.4, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.connect(gain); gain.connect(this.ctx.destination);
+          osc.start(now); osc.stop(now + 0.17);
+        }
+
+        // Karanlık Bas Synth
+        const bass = this.ctx.createOscillator();
+        const bGain = this.ctx.createGain();
+        bass.type = 'sawtooth';
+        bass.frequency.setValueAtTime(freq, now);
+        bGain.gain.setValueAtTime(vol * 0.55, now);
+        bGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(this.intenseMode ? 480 : 300, now);
+
+        bass.connect(filter); filter.connect(bGain); bGain.connect(this.ctx.destination);
+        bass.start(now); bass.stop(now + 0.21);
+      }
+
+      playTone(freq, endFreq, duration, type = 'triangle', gainScale = 1.0) {
+        this.unlock();
+        if (!this.ctx || this.sfxVol <= 0.01) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+        gain.gain.setValueAtTime(this.sfxVol * 0.35 * gainScale, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(now); osc.stop(now + duration + 0.02);
+      }
+
+      playHit(heavy = false) {
+        this.playTone(heavy ? 150 : 210, heavy ? 38 : 65, heavy ? 0.22 : 0.13, heavy ? 'sawtooth' : 'triangle', heavy ? 1.35 : 1.0);
+      }
+
+      playBlock() {
+        this.playTone(520, 260, 0.11, 'square', 0.8);
+      }
+
+      playSpecial(isUlt = false) {
+        this.playTone(isUlt ? 240 : 320, isUlt ? 880 : 620, isUlt ? 0.48 : 0.28, 'sawtooth', isUlt ? 1.4 : 1.1);
+        if (isUlt) setTimeout(() => this.playTone(130, 32, 0.55, 'sine', 1.6), 120);
+      }
+
+      playUiClick() {
+        this.playTone(620, 840, 0.07, 'sine', 0.55);
+      }
+
+      announce(text) {
+        // Dramatik spiker vurgusu + Web Speech Türkçe seslendirme
+        this.playTone(180, 95, 0.24, 'triangle', 0.9);
+        try {
+          if ('speechSynthesis' in window && this.sfxVol > 0.05) {
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(text.replace(/!/g, ''));
+            utter.lang = 'tr-TR';
+            utter.rate = 1.08;
+            utter.pitch = 0.72;
+            utter.volume = Math.min(1, this.sfxVol);
+            window.speechSynthesis.speak(utter);
+          }
+        } catch (e) {}
+      }
+    }
+
+    // =========================================================================
+    // 4. GELİŞMİŞ ANATOMİK & ZIRHLI 3D KARAKTER MODELİ (FighterRig)
+    // =========================================================================
+    class FighterRig {
+      constructor(charData, metalBump, fabricBump) {
+        this.data = charData;
+        this.root = new THREE.Group();
+        const p = charData.proportions;
+        const c = charData.colors;
+
+        const skinMat = new THREE.MeshStandardMaterial({ color: c.skin, roughness: 0.55, metalness: 0.05 });
+        const armorMat = new THREE.MeshStandardMaterial({
+          color: c.primary, roughness: 0.34, metalness: 0.62, bumpMap: metalBump, bumpScale: 0.02
+        });
+        const clothMat = new THREE.MeshStandardMaterial({
+          color: c.secondary, roughness: 0.78, metalness: 0.12, bumpMap: fabricBump, bumpScale: 0.025
+        });
+        const accentMat = new THREE.MeshStandardMaterial({
+          color: c.accent, roughness: 0.28, metalness: 0.75, emissive: c.glow, emissiveIntensity: 0.25
+        });
+        const glowMat = new THREE.MeshStandardMaterial({
+          color: c.glow, emissive: c.glow, emissiveIntensity: 1.4, roughness: 0.2
+        });
+
+        this.bodyGroup = new THREE.Group();
+        this.bodyGroup.scale.set(p.bulk, p.height, p.bulk);
+        this.root.add(this.bodyGroup);
+
+        // Kalça & Kemer
+        this.hips = new THREE.Group();
+        this.hips.position.y = 1.02;
+        this.bodyGroup.add(this.hips);
+
+        const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.2, 0.22, 14), clothMat);
+        pelvis.castShadow = true;
+        this.hips.add(pelvis);
+
+        const belt = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.07, 16), accentMat);
+        belt.position.y = 0.08;
+        this.hips.add(belt);
+
+        // Yan Zırh Plakaları (Tassets)
+        [-0.22, 0.22].forEach(x => {
+          const plate = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.26, 0.22), armorMat);
+          plate.position.set(x, -0.08, 0);
+          plate.rotation.z = x > 0 ? -0.18 : 0.18;
+          this.hips.add(plate);
+        });
+
+        // Gövde & Kaslı Göğüs Zırhı
+        this.torso = new THREE.Group();
+        this.torso.position.y = 0.12;
+        this.hips.add(this.torso);
+
+        const abdomen = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.28, 14), clothMat);
+        abdomen.position.y = 0.14;
+        abdomen.castShadow = true;
+        this.torso.add(abdomen);
+
+        const chest = new THREE.Mesh(new THREE.CylinderGeometry(0.29 * p.shoulder, 0.24, 0.34, 14), armorMat);
+        chest.position.y = 0.42;
+        chest.castShadow = true;
+        this.torso.add(chest);
+
+        // Göğüs Çekirdek Amblemi
+        const core = new THREE.Mesh(new THREE.OctahedronGeometry(0.065, 0), glowMat);
+        core.position.set(0, 0.44, 0.24);
+        this.torso.add(core);
+
+        // Kafa, Çene, Gözler ve Başlık
+        this.headGroup = new THREE.Group();
+        this.headGroup.position.y = 0.68;
+        this.torso.add(this.headGroup);
+
+        const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.1, 0.12, 12), skinMat);
+        neck.position.y = -0.04;
+        this.headGroup.add(neck);
+
+        // Yüz & Baş Yapısı
+        const faceMat = new THREE.MeshStandardMaterial({ color: c.skin, roughness: 0.5, metalness: 0.05 });
+        const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.155, 16, 16), faceMat);
+        headMesh.position.y = 0.12;
+        headMesh.scale.set(0.92, 1.08, 1.0);
+        this.headGroup.add(headMesh);
+
+        // Gözler (Sol ve Sağ)
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const pupilMat = new THREE.MeshBasicMaterial({ color: c.glow || 0xf59e0b });
+        [-0.045, 0.045].forEach(ex => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), eyeMat);
+          eye.position.set(ex, 0.14, 0.13);
+          const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.011, 6, 6), pupilMat);
+          pupil.position.set(ex, 0.14, 0.148);
+          this.headGroup.add(eye, pupil);
+        });
+
+        // Burun
+        const noseMat = new THREE.MeshStandardMaterial({ color: c.skin, roughness: 0.6 });
+        const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 5), noseMat);
+        nose.position.set(0, 0.1, 0.155);
+        nose.rotation.x = 0.25;
+        this.headGroup.add(nose);
+
+        // Ağız / Çene İfadesi
+        const mouthMat = new THREE.MeshBasicMaterial({ color: 0x451a03 });
+        const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.02), mouthMat);
+        mouth.position.set(0, 0.04, 0.148);
+        this.headGroup.add(mouth);
+
+        // Kaşlar (Sert Dövüşçü İfadesi)
+        const browMat = new THREE.MeshBasicMaterial({ color: 0x111827 });
+        [-0.048, 0.048].forEach((bx, idx) => {
+          const brow = new THREE.Mesh(new THREE.BoxGeometry(0.042, 0.012, 0.02), browMat);
+          brow.position.set(bx, 0.18, 0.135);
+          brow.rotation.z = idx === 0 ? 0.22 : -0.22;
+          this.headGroup.add(brow);
+        });
+
+        // Saç veya Miğfer Taç Detayı
+        const hairMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.7 });
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hairMat);
+        hair.position.set(0, 0.16, -0.01);
+        this.headGroup.add(hair);
+
+        // Başlık / Miğfer / Yüz Maskesi
+        const hood = new THREE.Mesh(new THREE.SphereGeometry(0.168, 16, 14, 0, Math.PI * 2, 0, Math.PI * 0.58), armorMat);
+        hood.position.y = 0.12;
+        hood.rotation.x = -0.15;
+        this.headGroup.add(hood);
+
+        if (charData.id === 'vesper' || charData.id === 'kenshin') {
+          const mask = new THREE.Mesh(new THREE.CylinderGeometry(0.145, 0.12, 0.11, 12, 1, false, -Math.PI * 0.45, Math.PI * 0.9), clothMat);
+          mask.position.set(0, 0.06, 0.02);
+          this.headGroup.add(mask);
+        }
+
+        // Draven Ejderha Miğferi Boynuzları & Vizör
+        if (charData.id === 'draven') {
+          [-1, 1].forEach(side => {
+            const horn = new THREE.Mesh(new THREE.ConeGeometry(0.036, 0.28, 7), accentMat);
+            horn.position.set(side * 0.13, 0.25, -0.02);
+            horn.rotation.set(-0.35, 0, -side * 0.45);
+            this.headGroup.add(horn);
+          });
+          const crest = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.18, 0.22), glowMat);
+          crest.position.set(0, 0.26, 0.02);
+          this.headGroup.add(crest);
+        }
+
+        // Kollar (Sol ve Sağ)
+        this.leftArm = this.buildArm(-1, p.shoulder, skinMat, armorMat, accentMat, glowMat);
+        this.rightArm = this.buildArm(1, p.shoulder, skinMat, armorMat, accentMat, glowMat);
+        this.torso.add(this.leftArm.shoulder);
+        this.torso.add(this.rightArm.shoulder);
+
+        // Bacaklar (Sol ve Sağ)
+        this.leftLeg = this.buildLeg(-1, clothMat, armorMat, accentMat);
+        this.rightLeg = this.buildLeg(1, clothMat, armorMat, accentMat);
+        this.hips.add(this.leftLeg.hip);
+        this.hips.add(this.rightLeg.hip);
+
+        // Karaktere Özel İmza Ekipmanlar
+        this.specialParts = [];
+        this.attachSignatureGear(charData.weapon, armorMat, accentMat, glowMat);
+
+        this.root.traverse(obj => {
+          if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; }
+        });
+      }
+
+      buildArm(side, shoulderScale, skinMat, armorMat, accentMat, glowMat) {
+        const shoulder = new THREE.Group();
+        shoulder.position.set(side * 0.34 * shoulderScale, 0.52, 0);
+
+        const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), armorMat);
+        pauldron.scale.set(1.15, 0.95, 1.1);
+        shoulder.add(pauldron);
+
+        const pauldronTrim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.018, 8, 16), accentMat);
+        pauldronTrim.rotation.x = Math.PI / 2;
+        shoulder.add(pauldronTrim);
+
+        const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.072, 0.3, 12), skinMat);
+        upperArm.position.y = -0.16;
+        shoulder.add(upperArm);
+
+        const elbow = new THREE.Group();
+        elbow.position.y = -0.32;
+        shoulder.add(elbow);
+
+        const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.062, 0.28, 12), armorMat);
+        forearm.position.y = -0.14;
+        elbow.add(forearm);
+
+        const gauntlet = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.13, 0.12), accentMat);
+        gauntlet.position.y = -0.3;
+        elbow.add(gauntlet);
+
+        return { shoulder, elbow, gauntlet, glowMat };
+      }
+
+      buildLeg(side, clothMat, armorMat, accentMat) {
+        const hip = new THREE.Group();
+        hip.position.set(side * 0.13, -0.08, 0);
+
+        const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.09, 0.44, 12), clothMat);
+        thigh.position.y = -0.22;
+        hip.add(thigh);
+
+        const knee = new THREE.Group();
+        knee.position.y = -0.45;
+        hip.add(knee);
+
+        const kneecap = new THREE.Mesh(new THREE.SphereGeometry(0.085, 10, 10), accentMat);
+        kneecap.position.z = 0.04;
+        knee.add(kneecap);
+
+        const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.088, 0.07, 0.44, 12), armorMat);
+        shin.position.y = -0.22;
+        knee.add(shin);
+
+        const boot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.11, 0.25), accentMat);
+        boot.position.set(0, -0.44, 0.05);
+        knee.add(boot);
+
+        return { hip, knee };
+      }
+
+      attachSignatureGear(weapon, armorMat, accentMat, glowMat) {
+        if (weapon === 'flame_gauntlets') {
+          [this.leftArm.gauntlet, this.rightArm.gauntlet].forEach(g => {
+            const claw = new THREE.Mesh(new THREE.ConeGeometry(0.045, 0.22, 6), glowMat);
+            claw.position.set(0, -0.02, 0.09);
+            claw.rotation.x = Math.PI / 2;
+            g.add(claw);
+          });
+        } else if (weapon === 'shadow_blades') {
+          [this.leftArm.elbow, this.rightArm.elbow].forEach((el, idx) => {
+            const blade = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.42, 0.07), glowMat);
+            blade.position.set(idx === 0 ? -0.07 : 0.07, -0.24, -0.04);
+            el.add(blade);
+          });
+        } else if (weapon === 'storm_halo') {
+          const halo = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.022, 8, 24), glowMat);
+          halo.position.set(0, 0.48, -0.22);
+          this.torso.add(halo);
+          this.specialParts.push({ mesh: halo, rotZ: 1.8 });
+        } else if (weapon === 'iron_pauldrons') {
+          [this.leftArm.shoulder, this.rightArm.shoulder].forEach((sh, idx) => {
+            const spike = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.26, 6), accentMat);
+            spike.position.set(idx === 0 ? -0.1 : 0.1, 0.14, 0);
+            spike.rotation.z = idx === 0 ? 0.5 : -0.5;
+            sh.add(spike);
+          });
+        } else if (weapon === 'frost_crown') {
+          for (let i = -1; i <= 1; i++) {
+            const shard = new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.18, 5), glowMat);
+            shard.position.set(i * 0.07, 0.28, 0.05);
+            shard.rotation.z = -i * 0.25;
+            this.headGroup.add(shard);
+          }
+        } else if (weapon === 'soul_orbs') {
+          for (let i = 0; i < 3; i++) {
+            const orb = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 12), glowMat);
+            this.torso.add(orb);
+            this.specialParts.push({ mesh: orb, orbitIdx: i });
+          }
+        } else if (weapon === 'plasma_katana') {
+          const crest = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.018, 6, 12, Math.PI), accentMat);
+          crest.position.set(0, 0.27, 0.13);
+          crest.rotation.z = Math.PI;
+          this.headGroup.add(crest);
+
+          const katana = new THREE.Group();
+          const hilt = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.24, 8), armorMat);
+          const blade = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.95, 0.045), glowMat);
+          blade.position.y = 0.55;
+          katana.add(hilt, blade);
+          katana.position.set(0, -0.32, 0.08);
+          katana.rotation.x = Math.PI * 0.48;
+          this.rightArm.elbow.add(katana);
+        } else if (weapon === 'time_rings') {
+          const r1 = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.018, 8, 28), accentMat);
+          const r2 = new THREE.Mesh(new THREE.TorusGeometry(0.31, 0.015, 8, 24), glowMat);
+          r1.position.set(0, 0.45, -0.24);
+          r2.position.set(0, 0.45, -0.24);
+          this.torso.add(r1, r2);
+          this.specialParts.push({ mesh: r1, rotZ: 1.2 }, { mesh: r2, rotZ: -2.1 });
+        } else if (weapon === 'solar_wings') {
+          const halo = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.014, 8, 24), glowMat);
+          halo.position.set(0, 0.34, -0.05);
+          halo.rotation.x = Math.PI * 0.35;
+          this.headGroup.add(halo);
+
+          [-1, 1].forEach(side => {
+            const wing = new THREE.Group();
+            wing.position.set(side * 0.18, 0.48, -0.16);
+            for (let f = 0; f < 4; f++) {
+              const feather = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.48 - f * 0.06, 0.015), glowMat);
+              feather.position.set(side * (0.14 + f * 0.09), 0.1 - f * 0.07, -0.04);
+              feather.rotation.z = -side * (0.45 + f * 0.18);
+              wing.add(feather);
+            }
+            this.torso.add(wing);
+            this.specialParts.push({ mesh: wing, wingSide: side });
+          });
+        } else if (weapon === 'dragon_greatsword') {
+          // Asimetrik Ejderha Dişi Omuzluklar
+          [-1, 1].forEach(side => {
+            const sh = side === -1 ? this.leftArm.shoulder : this.rightArm.shoulder;
+            const fang1 = new THREE.Mesh(new THREE.ConeGeometry(0.055, 0.28, 6), accentMat);
+            fang1.position.set(side * 0.09, 0.15, 0);
+            fang1.rotation.z = -side * 0.55;
+            sh.add(fang1);
+          });
+
+          // Parçalı Ejderha Pelerini
+          const cape = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.78, 0.025), armorMat);
+          cape.position.set(0, 0.18, -0.22);
+          cape.rotation.x = 0.16;
+          this.torso.add(cape);
+          this.specialParts.push({ mesh: cape, capeWave: true });
+
+          // Omuz Üstü Kor Küresi
+          const emberOrb = new THREE.Mesh(new THREE.OctahedronGeometry(0.075, 1), glowMat);
+          emberOrb.position.set(-0.42, 0.78, -0.1);
+          this.torso.add(emberOrb);
+          this.specialParts.push({ mesh: emberOrb, floatBob: true });
+
+          // Dev Ejder Dişi Büyük Kılıç (Greatsword)
+          const sword = new THREE.Group();
+          const pommel = new THREE.Mesh(new THREE.OctahedronGeometry(0.045, 0), accentMat);
+          const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.024, 0.28, 8), armorMat);
+          grip.position.y = 0.14;
+          const guard = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.045, 0.06), accentMat);
+          guard.position.y = 0.28;
+          const bladeCore = new THREE.Mesh(new THREE.BoxGeometry(0.095, 1.08, 0.025), armorMat);
+          bladeCore.position.y = 0.84;
+          const runeEdge = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.02, 0.032), glowMat);
+          runeEdge.position.y = 0.84;
+          const tip = new THREE.Mesh(new THREE.ConeGeometry(0.068, 0.22, 4), glowMat);
+          tip.position.y = 1.48;
+          tip.rotation.y = Math.PI / 4;
+
+          sword.add(pommel, grip, guard, bladeCore, runeEdge, tip);
+          sword.position.set(0, -0.32, 0.08);
+          sword.rotation.x = Math.PI * 0.46;
+          this.rightArm.elbow.add(sword);
+        }
+      }
+
+      updatePose(state, stateTime, animClock, facing, crouch = false) {
+        // KLASİK YANDAN DÖVÜŞ DURUŞU: Karakterler +Z (kameraya) değil, birbirine (+X / -X) bakar ve hafifçe kameraya açılı durur!
+        const targetYaw = facing === 1 ? (Math.PI * 0.42) : (-Math.PI * 0.42);
+        this.root.rotation.y += (targetYaw - this.root.rotation.y) * 0.28;
+        this.root.scale.x = 1;
+
+        // İkincil silah/aura/pelerin animasyonları
+        this.specialParts.forEach(part => {
+          if (part.rotZ) part.mesh.rotation.z += part.rotZ * 0.016;
+          if (part.orbitIdx !== undefined) {
+            const a = animClock * 2.4 + (part.orbitIdx * Math.PI * 2) / 3;
+            part.mesh.position.set(Math.cos(a) * 0.52, 0.45 + Math.sin(a * 2) * 0.1, Math.sin(a) * 0.42);
+          }
+          if (part.wingSide) {
+            part.mesh.rotation.y = part.wingSide * (0.25 + Math.sin(animClock * 4) * 0.14);
+          }
+          if (part.capeWave) {
+            part.mesh.rotation.x = 0.18 + Math.sin(animClock * 3.8) * 0.07;
+          }
+          if (part.floatBob) {
+            part.mesh.position.y = 0.78 + Math.sin(animClock * 4.5) * 0.05;
+            part.mesh.rotation.y += 0.04;
+          }
+        });
+
+        // Varsayılan Akıcı Dövüş Gardı Duruşu (Side-Stance Guard)
+        const breath = Math.sin(animClock * 3.4) * 0.032;
+        this.hips.position.y = (crouch ? 0.74 : 1.01) + breath;
+        this.hips.rotation.set(0, -0.32, 0);
+        this.torso.rotation.set(crouch ? 0.28 : 0.08, 0.22, 0);
+        this.headGroup.rotation.set(-0.04, -0.18, 0);
+
+        // Ön el ve arka el gard pozisyonu
+        this.leftArm.shoulder.rotation.set(-0.92, 0.25, 0.22);
+        this.leftArm.elbow.rotation.set(-1.42, 0, 0);
+        this.rightArm.shoulder.rotation.set(-0.68, -0.25, -0.25);
+        this.rightArm.elbow.rotation.set(-1.52, 0, 0);
+
+        // Bacaklar geniş dövüş duruşu
+        this.leftLeg.hip.rotation.set(crouch ? -0.65 : -0.26, 0, 0.06);
+        this.leftLeg.knee.rotation.set(crouch ? 1.15 : 0.38, 0, 0);
+        this.rightLeg.hip.rotation.set(crouch ? 0.45 : 0.28, 0, -0.06);
+        this.rightLeg.knee.rotation.set(crouch ? 0.95 : 0.34, 0, 0);
+
+        if (state === 'walk') {
+          const stride = Math.sin(animClock * 11);
+          this.leftLeg.hip.rotation.x = stride * 0.62;
+          this.leftLeg.knee.rotation.x = Math.max(0.12, -stride * 0.72);
+          this.rightLeg.hip.rotation.x = -stride * 0.62;
+          this.rightLeg.knee.rotation.x = Math.max(0.12, stride * 0.72);
+          this.torso.rotation.y = 0.22 + stride * 0.14;
+          this.hips.position.y = 1.0 + Math.abs(Math.cos(animClock * 11)) * 0.045;
+        } else if (state === 'jump') {
+          this.leftLeg.hip.rotation.x = -0.72;
+          this.leftLeg.knee.rotation.x = 1.15;
+          this.rightLeg.hip.rotation.x = 0.38;
+          this.rightLeg.knee.rotation.x = 0.65;
+          this.leftArm.shoulder.rotation.x = -1.85;
+          this.rightArm.shoulder.rotation.x = -1.65;
+        } else if (state === 'block') {
+          this.torso.rotation.x = 0.24;
+          this.leftArm.shoulder.rotation.set(-1.38, 0.45, -0.2);
+          this.leftArm.elbow.rotation.set(-1.68, 0, 0);
+          this.rightArm.shoulder.rotation.set(-1.38, -0.45, 0.2);
+          this.rightArm.elbow.rotation.set(-1.68, 0, 0);
+        } else if (state === 'attack_light') {
+          const ext = Math.sin(Math.min(1, stateTime * 4.5) * Math.PI);
+          this.torso.rotation.y = 0.62 * ext;
+          this.leftArm.shoulder.rotation.set(-1.58 * ext - 0.3, 0, 0);
+          this.leftArm.elbow.rotation.set(-0.12 * ext - 0.2, 0, 0);
+        } else if (state === 'attack_heavy') {
+          const ext = Math.sin(Math.min(1, stateTime * 3.1) * Math.PI);
+          this.torso.rotation.y = -0.68 * ext;
+          this.torso.rotation.x = 0.22 * ext;
+          this.rightArm.shoulder.rotation.set(-1.68 * ext - 0.2, -0.15, 0);
+          this.rightArm.elbow.rotation.set(-0.08 * ext, 0, 0);
+        } else if (state === 'kick_front') {
+          const ext = Math.sin(Math.min(1, stateTime * 3.6) * Math.PI);
+          this.torso.rotation.x = -0.28 * ext;
+          this.rightLeg.hip.rotation.x = -1.52 * ext;
+          this.rightLeg.knee.rotation.x = 0.12;
+        } else if (state === 'kick_round') {
+          const ext = Math.sin(Math.min(1, stateTime * 2.9) * Math.PI);
+          this.hips.rotation.y = -1.35 * ext;
+          this.torso.rotation.z = -0.38 * ext;
+          this.rightLeg.hip.rotation.set(-0.45 * ext, 0, -1.35 * ext);
+          this.rightLeg.knee.rotation.x = 0.1;
+        } else if (state === 'special') {
+          const ext = Math.sin(Math.min(1, stateTime * 2.5) * Math.PI);
+          this.hips.position.y = 1.06 + ext * 0.14;
+          this.torso.rotation.x = 0.3 * ext;
+          this.leftArm.shoulder.rotation.set(-1.58 * ext, 0.2, 0);
+          this.leftArm.elbow.rotation.set(-0.1, 0, 0);
+          this.rightArm.shoulder.rotation.set(-1.62 * ext, -0.2, 0);
+          this.rightArm.elbow.rotation.set(-0.1, 0, 0);
+        } else if (state === 'hit') {
+          this.torso.rotation.x = -0.48;
+          this.headGroup.rotation.x = -0.36;
+          this.leftArm.shoulder.rotation.x = 0.42;
+          this.rightArm.shoulder.rotation.x = 0.42;
+        } else if (state === 'ko') {
+          this.hips.position.y = 0.25;
+          this.hips.rotation.x = -Math.PI / 2;
+        } else if (state === 'victory') {
+          this.hips.position.y = 1.06;
+          this.torso.rotation.y = 0;
+          this.rightArm.shoulder.rotation.set(-2.65, 0, -0.25);
+          this.rightArm.elbow.rotation.set(-0.18, 0, 0);
+        }
+      }
+    }
+
+    // =========================================================================
+    // 5. DÖVÜŞÇÜ SINIFI (Durum Makinesi, Hasar, Kombo ve Enerji)
+    // =========================================================================
+    class Fighter {
+      constructor(slot, charData, metalBump, fabricBump) {
+        this.slot = slot;
+        this.data = charData;
+        this.rig = new FighterRig(charData, metalBump, fabricBump);
+        this.x = slot === 1 ? -2.2 : 2.2;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.facing = slot === 1 ? 1 : -1;
+
+        this.maxHp = charData.stats.hp;
+        this.hp = this.maxHp;
+        this.energy = 35;
+        this.state = 'idle';
+        this.stateTimer = 0;
+        this.stateDuration = 0;
+        this.currentAttack = null;
+        this.hasHitThisAttack = false;
+
+        this.comboCount = 0;
+        this.comboDamage = 0;
+        this.comboResetTimer = 0;
+        this.totalDamageDealt = 0;
+        this.tookDamageThisRound = false;
+        this.isCrouching = false;
+        this.animClock = Math.random() * 10;
+      }
+
+      resetForRound(xPos) {
+        this.x = xPos;
+        this.y = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.hp = this.maxHp;
+        this.energy = 35;
+        this.state = 'idle';
+        this.stateTimer = 0;
+        this.currentAttack = null;
+        this.hasHitThisAttack = false;
+        this.comboCount = 0;
+        this.comboDamage = 0;
+        this.comboResetTimer = 0;
+        this.tookDamageThisRound = false;
+        this.isCrouching = false;
+      }
+
+      isBusy() {
+        return ['attack_light', 'attack_heavy', 'kick_front', 'kick_round', 'special', 'hit', 'ko', 'victory'].includes(this.state);
+      }
+
+      startAttack(type, meta) {
+        if (this.isBusy() || this.state === 'block') return false;
+        if (meta.cost && this.energy < meta.cost) return false;
+        if (meta.cost) this.energy = Math.max(0, this.energy - meta.cost);
+
+        this.state = type;
+        this.stateTimer = 0;
+        this.stateDuration = meta.duration;
+        this.currentAttack = meta;
+        this.hasHitThisAttack = false;
+        if (meta.dash) this.vx = this.facing * meta.dash * 4.5;
+        return true;
+      }
+
+      update(dt, opponent, arenaLimit = 6.2) {
+        this.animClock += dt;
+        this.stateTimer += dt;
+
+        if (this.comboResetTimer > 0) {
+          this.comboResetTimer -= dt;
+          if (this.comboResetTimer <= 0) {
+            this.comboCount = 0;
+            this.comboDamage = 0;
+          }
+        }
+
+        // Pasif enerji yenilenmesi
+        if (this.state !== 'ko') {
+          this.energy = Math.min(100, this.energy + dt * 3.2);
+        }
+
+        // Yerçekimi ve yatay hareket
+        if (this.y > 0 || this.vy !== 0) {
+          this.vy -= 24 * dt;
+          this.y += this.vy * dt;
+          if (this.y <= 0) {
+            this.y = 0;
+            this.vy = 0;
+            if (this.state === 'jump') this.state = 'idle';
+          }
+        }
+
+        this.x += this.vx * dt;
+        this.vx *= Math.pow(0.06, dt);
+        this.x = Math.max(-arenaLimit, Math.min(arenaLimit, this.x));
+
+        // Karakterlerin iç içe geçmesini engelleme
+        if (opponent && this.state !== 'ko' && opponent.state !== 'ko') {
+          const dist = Math.abs(this.x - opponent.x);
+          if (dist < 0.85) {
+            const push = (0.85 - dist) * 0.5;
+            this.x += (this.x < opponent.x ? -push : push);
+          }
+          if (!this.isBusy() && this.y === 0) {
+            this.facing = opponent.x >= this.x ? 1 : -1;
+          }
+        }
+
+        // Durum süresi tamamlandıysa idle'a dön
+        if (this.isBusy() && this.state !== 'ko' && this.state !== 'victory') {
+          if (this.stateTimer >= this.stateDuration) {
+            this.state = this.y > 0 ? 'jump' : 'idle';
+            this.currentAttack = null;
+            this.hasHitThisAttack = false;
+          }
+        }
+
+        this.rig.root.position.set(this.x, this.y, 0);
+        this.rig.updatePose(this.state, this.stateTimer, this.animClock, this.facing, this.isCrouching);
+      }
+    }
+
+    // =========================================================================
+    // 6. AKILLI & HAREKETLİ YAPAY ZEKÂ (FighterAI)
+    // =========================================================================
+    class FighterAI {
+      constructor(difficulty = 'normal') {
+        this.setDifficulty(difficulty);
+        this.decisionTimer = 0;
+        this.desiredMove = 0;
+        this.wantsBlock = false;
+        this.comboStep = 0;
+      }
+
+      setDifficulty(diff) {
+        this.difficulty = diff;
+        const presets = {
+          easy:   { reaction: 0.45, aggression: 0.32, blockChance: 0.22, comboChance: 0.15, evadeChance: 0.05 },
+          normal: { reaction: 0.26, aggression: 0.55, blockChance: 0.48, comboChance: 0.42, evadeChance: 0.20 },
+          hard:   { reaction: 0.15, aggression: 0.76, blockChance: 0.72, comboChance: 0.70, evadeChance: 0.45 },
+          expert: { reaction: 0.08, aggression: 0.92, blockChance: 0.88, comboChance: 0.90, evadeChance: 0.72 }
+        };
+        this.cfg = presets[diff] || presets.normal;
+      }
+
+      update(dt, aiFighter, playerFighter, game) {
+        if (aiFighter.state === 'ko' || aiFighter.state === 'victory') return;
+        this.decisionTimer -= dt;
+
+        const dist = Math.abs(aiFighter.x - playerFighter.x);
+        const dirToPlayer = playerFighter.x >= aiFighter.x ? 1 : -1;
+        const playerAttacking = ['attack_light', 'attack_heavy', 'kick_front', 'kick_round', 'special'].includes(playerFighter.state);
+
+        // Oyuncu saldırıyorsa anlık blok veya Expert kaçınma tepkisi
+        if (playerAttacking && dist < 2.9 && !aiFighter.isBusy()) {
+          if (Math.random() < this.cfg.evadeChance * dt * 8 && aiFighter.y === 0) {
+            aiFighter.vx = -dirToPlayer * 8.5;
+            aiFighter.vy = 7.5;
+            aiFighter.state = 'jump';
+            return;
+          }
+          if (Math.random() < this.cfg.blockChance) {
+            aiFighter.state = 'block';
+            this.wantsBlock = true;
+            return;
+          }
+        } else if (this.wantsBlock && !playerAttacking) {
+          this.wantsBlock = false;
+          if (aiFighter.state === 'block') aiFighter.state = 'idle';
+        }
+
+        if (this.decisionTimer <= 0) {
+          this.decisionTimer = this.cfg.reaction * (0.75 + Math.random() * 0.5);
+
+          if (aiFighter.isBusy() || aiFighter.state === 'block') return;
+
+          // Mesafe yönetimi ve dinamik footwork (sabit bot gibi durmaz)
+          if (dist > 2.3) {
+            this.desiredMove = dirToPlayer;
+            if (dist > 3.4 && aiFighter.energy >= 30 && Math.random() < this.cfg.aggression * 0.45) {
+              game.triggerSpecial(aiFighter, 'sp1');
+              return;
+            }
+          } else if (dist < 1.05) {
+            // Çok yakınsa geri adım at veya hızlı komboya gir
+            if (Math.random() < 0.35) {
+              this.desiredMove = -dirToPlayer;
+            } else {
+              this.executeAttackChoice(aiFighter, game);
+            }
+          } else {
+            // İdeal dövüş mesafesi: ileri-geri shimmy adımı ve saldırı
+            const roll = Math.random();
+            if (roll < this.cfg.aggression) {
+              this.executeAttackChoice(aiFighter, game);
+            } else {
+              this.desiredMove = Math.random() < 0.5 ? dirToPlayer : -dirToPlayer;
+            }
+          }
+        }
+
+        // Sürekli akıcı yürüme hareketi
+        if (!aiFighter.isBusy() && aiFighter.state !== 'block' && aiFighter.y === 0) {
+          if (this.desiredMove !== 0) {
+            const speed = 3.6 * (aiFighter.data.stats.speed / 85);
+            aiFighter.vx = this.desiredMove * speed;
+            aiFighter.state = 'walk';
+          } else if (aiFighter.state === 'walk') {
+            aiFighter.state = 'idle';
+          }
+        }
+      }
+
+      executeAttackChoice(aiFighter, game) {
+        this.desiredMove = 0;
+        const r = Math.random();
+        if (aiFighter.energy >= 100 && r < 0.55) {
+          game.triggerSpecial(aiFighter, 'ult');
+        } else if (aiFighter.energy >= 45 && r < 0.38) {
+          game.triggerSpecial(aiFighter, 'sp2');
+        } else if (aiFighter.energy >= 30 && r < 0.52) {
+          game.triggerSpecial(aiFighter, 'sp1');
+        } else if (this.comboStep === 1 && Math.random() < this.cfg.comboChance) {
+          this.comboStep = 0;
+          game.triggerBasicAttack(aiFighter, Math.random() < 0.5 ? 'attack_heavy' : 'kick_round');
+        } else {
+          this.comboStep = 1;
+          game.triggerBasicAttack(aiFighter, Math.random() < 0.55 ? 'attack_light' : 'kick_front');
+        }
+      }
+    }
+
+    // =========================================================================
+    // 7. 3D ARENA VE PARÇACIK EFEKT YÖNETİCİSİ
+    // =========================================================================
+    class ArenaManager {
+      constructor(scene, stoneBump) {
+        this.scene = scene;
+        this.stoneBump = stoneBump;
+        this.arenaGroup = new THREE.Group();
+        this.scene.add(this.arenaGroup);
+
+        this.ambientParticles = [];
+        this.vfxBursts = [];
+        this.projectiles = [];
+
+        this.keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+        this.keyLight.position.set(5, 11, 7);
+        this.keyLight.castShadow = true;
+        this.keyLight.shadow.mapSize.set(1024, 1024);
+        this.keyLight.shadow.camera.near = 1;
+        this.keyLight.shadow.camera.far = 30;
+        const d = 9;
+        this.keyLight.shadow.camera.left = -d;
+        this.keyLight.shadow.camera.right = d;
+        this.keyLight.shadow.camera.top = d;
+        this.keyLight.shadow.camera.bottom = -d;
+        this.scene.add(this.keyLight);
+
+        this.fillLight = new THREE.PointLight(0xff8844, 1.1, 22);
+        this.fillLight.position.set(-6, 4, 5);
+        this.scene.add(this.fillLight);
+
+        this.rimLight = new THREE.DirectionalLight(0x60a5fa, 0.85);
+        this.rimLight.position.set(0, 6, -8);
+        this.scene.add(this.rimLight);
+
+        this.hemiLight = new THREE.HemisphereLight(0xffffff, 0x18181b, 0.55);
+        this.scene.add(this.hemiLight);
+      }
+
+      loadArena(arenaKey) {
+        const cfg = ARENAS[arenaKey] || ARENAS.ashen_temple;
+        this.scene.background = new THREE.Color(cfg.sky);
+        this.scene.fog = new THREE.FogExp2(cfg.fog, 0.032);
+
+        this.keyLight.color.setHex(cfg.keyLight);
+        this.fillLight.color.setHex(cfg.fillLight);
+        this.rimLight.color.setHex(cfg.rimLight);
+
+        while (this.arenaGroup.children.length > 0) {
+          this.arenaGroup.remove(this.arenaGroup.children[0]);
+        }
+        this.ambientParticles = [];
+
+        // Zemin Platformu + Madalyon Dokusu
+        const floorTex = ProceduralTextures.createArenaFloorTexture(cfg.floorPrimary, cfg.floorAccent);
+        const floorMat = new THREE.MeshStandardMaterial({
+          map: floorTex, bumpMap: this.stoneBump, bumpScale: 0.03, roughness: 0.62, metalness: 0.18
+        });
+        const floor = new THREE.Mesh(new THREE.CylinderGeometry(8.8, 9.2, 0.5, 48), floorMat);
+        floor.position.y = -0.25;
+        floor.receiveShadow = true;
+        this.arenaGroup.add(floor);
+
+        const ringMat = new THREE.MeshStandardMaterial({
+          color: cfg.floorAccent, emissive: cfg.floorAccent, emissiveIntensity: 0.85, roughness: 0.3
+        });
+        const edgeRing = new THREE.Mesh(new THREE.TorusGeometry(8.75, 0.08, 12, 64), ringMat);
+        edgeRing.rotation.x = Math.PI / 2;
+        edgeRing.position.y = 0.02;
+        this.arenaGroup.add(edgeRing);
+
+        // Arka Plan Sütunları, Kemerler & Ateş Çanakları (Brazier)
+        const pillarMat = new THREE.MeshStandardMaterial({
+          color: cfg.pillarColor, bumpMap: this.stoneBump, bumpScale: 0.04, roughness: 0.75
+        });
+        for (let i = -3; i <= 3; i++) {
+          if (i === 0) continue;
+          const pz = -5.4 - Math.abs(i) * 0.35;
+          const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.54, 6.8, 12), pillarMat);
+          pillar.position.set(i * 2.55, 3.1, pz);
+          pillar.castShadow = true;
+          pillar.receiveShadow = true;
+          this.arenaGroup.add(pillar);
+
+          // Sütun Başlığı
+          const cap = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.32, 1.15), pillarMat);
+          cap.position.set(i * 2.55, 6.45, pz);
+          this.arenaGroup.add(cap);
+
+          // Meşale / Enerji Kristali
+          const torch = new THREE.Mesh(new THREE.OctahedronGeometry(0.22, 0), ringMat);
+          torch.position.set(i * 2.55, 3.7, pz + 0.55);
+          this.arenaGroup.add(torch);
+        }
+
+        // Merkez Arka Tapınak Kemeri
+        const archLeft = new THREE.Mesh(new THREE.BoxGeometry(0.65, 5.8, 0.65), pillarMat);
+        archLeft.position.set(-1.6, 2.9, -6.6);
+        const archRight = new THREE.Mesh(new THREE.BoxGeometry(0.65, 5.8, 0.65), pillarMat);
+        archRight.position.set(1.6, 2.9, -6.6);
+        const archTop = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.55, 0.8), pillarMat);
+        archTop.position.set(0, 5.8, -6.6);
+        const archRune = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.04, 8, 24), ringMat);
+        archRune.position.set(0, 4.4, -6.4);
+        this.arenaGroup.add(archLeft, archRight, archTop, archRune);
+
+        // Hacimsel Işık Hüzmeleri (Light Shafts)
+        const shaftMat = new THREE.MeshBasicMaterial({
+          color: cfg.keyLight, transparent: true, opacity: 0.045, side: THREE.DoubleSide, depthWrite: false
+        });
+        [-3.2, 0, 3.2].forEach(sx => {
+          const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.8, 10, 12, 1, true), shaftMat);
+          shaft.position.set(sx, 4.8, -2.5);
+          shaft.rotation.z = 0.14;
+          this.arenaGroup.add(shaft);
+        });
+
+        // Yüzen Ortam Parçacıkları
+        const pMat = new THREE.MeshBasicMaterial({ color: cfg.particleColor });
+        const pGeo = new THREE.SphereGeometry(0.035, 6, 6);
+        for (let i = 0; i < 45; i++) {
+          const m = new THREE.Mesh(pGeo, pMat);
+          m.position.set((Math.random() - 0.5) * 15, 0.3 + Math.random() * 5, (Math.random() - 0.5) * 10);
+          this.arenaGroup.add(m);
+          this.ambientParticles.push({ mesh: m, speed: 0.3 + Math.random() * 0.6, phase: Math.random() * 6.28 });
+        }
+      }
+
+      spawnImpactBurst(x, y, colorHex, count = 16, scale = 1.0) {
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex });
+        const geo = new THREE.OctahedronGeometry(0.07 * scale, 0);
+        for (let i = 0; i < count; i++) {
+          const mesh = new THREE.Mesh(geo, mat);
+          mesh.position.set(x, y, 0.15);
+          this.scene.add(mesh);
+          const angle = Math.random() * Math.PI * 2;
+          const spd = (2.5 + Math.random() * 5.5) * scale;
+          this.vfxBursts.push({
+            mesh,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd + 1.5,
+            vz: (Math.random() - 0.5) * 3.5,
+            life: 0.38 + Math.random() * 0.2
+          });
+        }
+      }
+
+      spawnShockwave(x, y, colorHex) {
+        const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.45, 24), mat);
+        mesh.position.set(x, y, 0.25);
+        this.scene.add(mesh);
+        this.vfxBursts.push({ mesh, isRing: true, life: 0.45, maxLife: 0.45 });
+      }
+
+      update(dt, clock) {
+        this.ambientParticles.forEach(p => {
+          p.mesh.position.y += p.speed * dt;
+          p.mesh.position.x += Math.sin(clock * 1.5 + p.phase) * 0.25 * dt;
+          if (p.mesh.position.y > 5.5) p.mesh.position.y = 0.2;
+        });
+
+        for (let i = this.vfxBursts.length - 1; i >= 0; i--) {
+          const b = this.vfxBursts[i];
+          b.life -= dt;
+          if (b.life <= 0) {
+            this.scene.remove(b.mesh);
+            this.vfxBursts.splice(i, 1);
+            continue;
+          }
+          if (b.isRing) {
+            const prog = 1 - b.life / b.maxLife;
+            const s = 1 + prog * 6.5;
+            b.mesh.scale.set(s, s, 1);
+            b.mesh.material.opacity = (1 - prog) * 0.85;
+          } else {
+            b.vy -= 14 * dt;
+            b.mesh.position.x += b.vx * dt;
+            b.mesh.position.y += b.vy * dt;
+            b.mesh.position.z += b.vz * dt;
+            b.mesh.scale.setScalar(Math.max(0.01, b.life * 2.2));
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // 8. ANA OYUN MOTORU VE DURUM YÖNETİCİSİ (ShadowClashApp)
+    // =========================================================================
+    class ShadowClashApp {
+      constructor() {
+        this.canvas = document.getElementById('game-canvas');
+        this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, powerPreference: 'high-performance' });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.15;
+
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.1, 100);
+        this.camera.position.set(0, 2.35, 8.2);
+
+        this.audio = new AudioManager();
+        this.metalBump = ProceduralTextures.createBumpMap('metal');
+        this.fabricBump = ProceduralTextures.createBumpMap('fabric');
+        this.stoneBump = ProceduralTextures.createBumpMap('stone');
+
+        this.arenaManager = new ArenaManager(this.scene, this.stoneBump);
+        this.aiController = new FighterAI('normal');
+
+        this.screenState = 'menu'; // menu, select, fight, paused, result
+        this.gameMode = 'versus';
+        this.selectedP1 = 'kairo';
+        this.selectedP2 = 'vesper';
+        this.selectTarget = 1;
+        this.selectedArena = 'ashen_temple';
+        this.difficulty = 'normal';
+
+        this.fighters = [];
+        this.roundNum = 1;
+        this.p1Wins = 0;
+        this.p2Wins = 0;
+        this.roundTimer = 99;
+        this.roundTimerAcc = 0;
+        this.roundActive = false;
+        this.matchStartTime = 0;
+
+        this.stageIndex = 0;
+        this.survivalStreak = 0;
+        this.controlMode = 'auto';
+        this.practiceDummyMode = 'block';
+
+        this.timeScale = 1.0;
+        this.hitstopTimer = 0;
+        this.cameraShake = 0;
+        this.finisherZoomTarget = null;
+        this.globalClock = 0;
+
+        this.keys = {};
+        this.saveData = this.loadSaveData();
+
+        this.initUI();
+        this.bindEvents();
+        this.applyDeviceControls();
+        this.setupMenuShowcase();
+        this.finishLoading();
+      }
+
+      loadSaveData() {
+        try {
+          const raw = localStorage.getItem('shadow_clash_save_v4');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            return {
+              wins: parsed.wins || 0,
+              maxCombo: parsed.maxCombo || 0,
+              bestSurvival: parsed.bestSurvival || 0,
+              arcadeBest: parsed.arcadeBest || 0,
+              flawlessCount: parsed.flawlessCount || 0,
+              expertWins: parsed.expertWins || 0,
+              dravenWins: parsed.dravenWins || 0,
+              uniqueWinners: Array.isArray(parsed.uniqueWinners) ? parsed.uniqueWinners : [],
+              unlockedAchievements: Array.isArray(parsed.unlockedAchievements) ? parsed.unlockedAchievements : []
+            };
+          }
+        } catch (e) {}
+        return {
+          wins: 0, maxCombo: 0, bestSurvival: 0, arcadeBest: 0,
+          flawlessCount: 0, expertWins: 0, dravenWins: 0,
+          uniqueWinners: [], unlockedAchievements: []
+        };
+      }
+
+      persistSave() {
+        try {
+          localStorage.setItem('shadow_clash_save_v4', JSON.stringify(this.saveData));
+        } catch (e) {}
+        document.getElementById('stat-wins').textContent = this.saveData.wins;
+        document.getElementById('stat-combo').textContent = `${this.saveData.maxCombo} Vuruş`;
+        document.getElementById('stat-survival').textContent = `${this.saveData.bestSurvival} Seri`;
+        document.getElementById('stat-achievements').textContent = `${this.saveData.unlockedAchievements.length} / ${ACHIEVEMENTS_DEF.length}`;
+        this.renderAchievementsModal();
+      }
+
+      checkAchievements() {
+        const metrics = {
+          wins: this.saveData.wins,
+          maxCombo: this.saveData.maxCombo,
+          flawlessCount: this.saveData.flawlessCount,
+          expertWins: this.saveData.expertWins,
+          dravenWins: this.saveData.dravenWins,
+          arcadeBest: this.saveData.arcadeBest,
+          bestSurvival: this.saveData.bestSurvival,
+          uniqueWinsCount: this.saveData.uniqueWinners.length
+        };
+
+        let newlyUnlocked = false;
+        ACHIEVEMENTS_DEF.forEach(ach => {
+          if (this.saveData.unlockedAchievements.includes(ach.id)) return;
+          if ((metrics[ach.key] || 0) >= ach.goal) {
+            this.saveData.unlockedAchievements.push(ach.id);
+            newlyUnlocked = true;
+            this.showAchievementToast(ach);
+          }
+        });
+        if (newlyUnlocked) this.persistSave();
+      }
+
+      showAchievementToast(ach) {
+        const container = document.getElementById('achievement-toast-container');
+        if (!container) return;
+        const el = document.createElement('div');
+        el.className = 'toast-anim glass-panel rounded-xl px-4 py-2.5 border border-amber-400/70 flex items-center gap-3 shadow-2xl';
+        el.innerHTML = `
+          <span class="text-2xl">${ach.icon}</span>
+          <div>
+            <div class="text-[10px] font-extrabold tracking-widest text-amber-400 uppercase">🏆 BAŞARIM AÇILDI!</div>
+            <div class="font-display font-bold text-sm text-white">${ach.title}</div>
+            <div class="text-[11px] text-gray-300">${ach.desc}</div>
+          </div>
+        `;
+        container.appendChild(el);
+        this.audio.playTone(523.25, 783.99, 0.25, 'triangle', 0.9);
+        setTimeout(() => el.remove(), 3500);
+      }
+
+      renderAchievementsModal() {
+        const list = document.getElementById('achievements-list');
+        const summary = document.getElementById('ach-modal-summary');
+        if (!list) return;
+
+        const metrics = {
+          wins: this.saveData.wins,
+          maxCombo: this.saveData.maxCombo,
+          flawlessCount: this.saveData.flawlessCount,
+          expertWins: this.saveData.expertWins,
+          dravenWins: this.saveData.dravenWins,
+          arcadeBest: this.saveData.arcadeBest,
+          bestSurvival: this.saveData.bestSurvival,
+          uniqueWinsCount: this.saveData.uniqueWinners.length
+        };
+
+        if (summary) {
+          summary.textContent = `${this.saveData.unlockedAchievements.length} / ${ACHIEVEMENTS_DEF.length} Başarım Açıldı`;
+        }
+
+        list.innerHTML = '';
+        ACHIEVEMENTS_DEF.forEach(ach => {
+          const unlocked = this.saveData.unlockedAchievements.includes(ach.id);
+          const cur = Math.min(ach.goal, metrics[ach.key] || 0);
+          const pct = Math.round((cur / ach.goal) * 100);
+          const card = document.createElement('div');
+          card.className = `rounded-xl p-3 border flex items-start gap-3 ${unlocked ? 'bg-amber-500/15 border-amber-400/60' : 'bg-white/5 border-white/10 opacity-75'}`;
+          card.innerHTML = `
+            <div class="text-2xl">${unlocked ? ach.icon : '🔒'}</div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-1">
+                <span class="font-display font-bold text-xs sm:text-sm ${unlocked ? 'text-amber-300' : 'text-gray-300'}">${ach.title}</span>
+                <span class="text-[10px] font-bold ${unlocked ? 'text-emerald-400' : 'text-gray-400'}">${unlocked ? 'TAMAMLANDI' : `${cur}/${ach.goal}`}</span>
+              </div>
+              <p class="text-[11px] text-gray-300 mt-0.5">${ach.desc}</p>
+              <div class="w-full h-1.5 bg-gray-900 rounded-full overflow-hidden mt-2">
+                <div class="h-full ${unlocked ? 'bg-amber-400' : 'bg-gray-500'}" style="width:${pct}%"></div>
+              </div>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+      }
+
+      isTouchDevice() {
+        const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        const mobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+        return (navigator.maxTouchPoints > 0 && (coarse || mobileUA));
+      }
+
+      setControlMode(mode) {
+        this.controlMode = mode;
+        this.applyDeviceControls();
+      }
+
+      applyDeviceControls() {
+        const useTouch = this.controlMode === 'touch' || (this.controlMode === 'auto' && this.isTouchDevice());
+        const touchUI = document.getElementById('mobile-touch-controls');
+        const pcGuide = document.getElementById('pc-key-guide');
+        if (touchUI && pcGuide) {
+          if (useTouch) {
+            touchUI.classList.remove('hidden');
+            touchUI.classList.add('flex');
+            pcGuide.classList.add('hidden');
+          } else {
+            touchUI.classList.add('hidden');
+            touchUI.classList.remove('flex');
+            pcGuide.classList.remove('hidden');
+          }
+        }
+      }
+
+      initUI() {
+        this.persistSave();
+
+        // Karakter Seçim Izgarası
+        const grid = document.getElementById('roster-grid');
+        grid.innerHTML = '';
+        CHARACTER_ROSTER.forEach(ch => {
+          const btn = document.createElement('button');
+          btn.id = `roster-btn-${ch.id}`;
+          btn.className = 'btn-clash rounded-xl p-1.5 sm:p-2 flex flex-col items-center text-center border border-white/15';
+          const hex = '#' + new THREE.Color(ch.colors.accent).getHexString();
+          btn.innerHTML = `
+            <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full mb-1 flex items-center justify-center font-display font-black text-xs text-white shadow-inner" style="background: radial-gradient(circle, ${hex}, #111827); border: 1px solid ${hex}">
+              ${ch.name[0]}
+            </div>
+            <div class="font-display font-bold text-[10px] sm:text-[11px] text-white truncate w-full">${ch.name}</div>
+            <div class="text-[9px] text-gray-400 truncate w-full">${ch.element}</div>
+          `;
+          btn.onclick = () => this.pickCharacter(ch.id);
+          grid.appendChild(btn);
+        });
+
+        // Kütüphane Modalı İçeriği
+        const loreList = document.getElementById('lore-list');
+        loreList.innerHTML = '';
+        CHARACTER_ROSTER.forEach(ch => {
+          const hex = '#' + new THREE.Color(ch.colors.accent).getHexString();
+          const card = document.createElement('div');
+          card.className = 'bg-white/5 border border-white/10 rounded-xl p-3.5';
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-display font-black text-base text-white">${ch.name}</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full font-bold" style="background:${hex}25; color:${hex}">${ch.element}</span>
+            </div>
+            <div class="text-xs font-semibold text-amber-300 mb-1.5">${ch.title}</div>
+            <p class="text-[11px] text-gray-300 leading-relaxed mb-2">${ch.bio}</p>
+            <div class="text-[10px] text-gray-400 border-t border-white/10 pt-1.5">
+              <b>İmza Güç:</b> <span class="text-white">${ch.specials.ult.name}</span>
+            </div>
+          `;
+          loreList.appendChild(card);
+        });
+      }
+
+      bindEvents() {
+        window.addEventListener('resize', () => {
+          this.camera.aspect = window.innerWidth / window.innerHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        window.addEventListener('keydown', e => {
+          this.audio.unlock();
+          const code = e.code;
+          if (!this.keys[code]) {
+            this.keys[code] = true;
+            this.handleKeyDown(code);
+          }
+        });
+
+        window.addEventListener('keyup', e => {
+          this.keys[e.code] = false;
+          if (e.code === 'KeyL' && this.fighters[0] && this.fighters[0].state === 'block') {
+            this.fighters[0].state = 'idle';
+          }
+          if (e.code === 'KeyS' && this.fighters[0]) {
+            this.fighters[0].isCrouching = false;
+          }
+          if (e.code === 'Numpad0' && this.fighters[1] && this.fighters[1].state === 'block') {
+            this.fighters[1].state = 'idle';
+          }
+        });
+
+        // Dokunmatik Sanal Tuş Dinleyicileri
+        document.querySelectorAll('[data-touch-key]').forEach(btn => {
+          const code = btn.getAttribute('data-touch-key');
+          btn.addEventListener('touchstart', ev => {
+            ev.preventDefault();
+            this.audio.unlock();
+            if (!this.keys[code]) {
+              this.keys[code] = true;
+              this.handleKeyDown(code);
+            }
+          }, { passive: false });
+          btn.addEventListener('touchend', ev => {
+            ev.preventDefault();
+            this.keys[code] = false;
+            if (code === 'KeyL' && this.fighters[0] && this.fighters[0].state === 'block') this.fighters[0].state = 'idle';
+            if (code === 'KeyS' && this.fighters[0]) this.fighters[0].isCrouching = false;
+          }, { passive: false });
+        });
+      }
+
+      finishLoading() {
+        const bar = document.getElementById('loading-bar');
+        const txt = document.getElementById('loading-text');
+        setTimeout(() => { bar.style.width = '65%'; txt.textContent = '9 Savaşçı ve Arenalar Yükleniyor...'; }, 180);
+        setTimeout(() => { bar.style.width = '100%'; txt.textContent = 'Hazır!'; }, 380);
+        setTimeout(() => {
+          document.getElementById('loading-screen').classList.add('hidden');
+          document.getElementById('main-menu').classList.remove('hidden');
+          document.getElementById('main-menu').classList.add('flex');
+          this.lastFrameTime = performance.now();
+          requestAnimationFrame(t => this.loop(t));
+        }, 550);
+      }
+
+      clearFightersFromScene() {
+        this.fighters.forEach(f => this.scene.remove(f.rig.root));
+        this.fighters = [];
+      }
+
+      setupMenuShowcase() {
+        this.clearFightersFromScene();
+        this.arenaManager.loadArena(this.selectedArena);
+        const c1 = CHARACTER_ROSTER.find(c => c.id === this.selectedP1) || CHARACTER_ROSTER[0];
+        const c2 = CHARACTER_ROSTER.find(c => c.id === this.selectedP2) || CHARACTER_ROSTER[1];
+
+        const f1 = new Fighter(1, c1, this.metalBump, this.fabricBump);
+        const f2 = new Fighter(2, c2, this.metalBump, this.fabricBump);
+        f1.x = -1.45; f2.x = 1.45;
+        f1.facing = 1; f2.facing = -1;
+        this.fighters = [f1, f2];
+        this.scene.add(f1.rig.root, f2.rig.root);
+      }
+
+      updateSelectCards() {
+        const c1 = CHARACTER_ROSTER.find(c => c.id === this.selectedP1) || CHARACTER_ROSTER[0];
+        const c2 = CHARACTER_ROSTER.find(c => c.id === this.selectedP2) || CHARACTER_ROSTER[1];
+
+        document.getElementById('p1-name').textContent = c1.name;
+        document.getElementById('p1-title').textContent = c1.title;
+        document.getElementById('p1-style-tag').textContent = c1.element;
+        document.getElementById('p1-stat-hp').textContent = c1.stats.hp;
+        document.getElementById('p1-stat-pwr').textContent = c1.stats.power;
+        document.getElementById('p1-stat-spd').textContent = c1.stats.speed;
+        document.getElementById('p1-bar-hp').style.width = `${(c1.stats.hp / 1200) * 100}%`;
+        document.getElementById('p1-bar-pwr').style.width = `${c1.stats.power}%`;
+        document.getElementById('p1-bar-spd').style.width = `${c1.stats.speed}%`;
+        document.getElementById('p1-sp1').textContent = c1.specials.sp1.name;
+        document.getElementById('p1-sp2').textContent = c1.specials.sp2.name;
+        document.getElementById('p1-ult').textContent = c1.specials.ult.name;
+
+        document.getElementById('p2-name').textContent = c2.name;
+        document.getElementById('p2-title').textContent = c2.title;
+        document.getElementById('p2-style-tag').textContent = c2.element;
+        document.getElementById('p2-stat-hp').textContent = c2.stats.hp;
+        document.getElementById('p2-stat-pwr').textContent = c2.stats.power;
+        document.getElementById('p2-stat-spd').textContent = c2.stats.speed;
+        document.getElementById('p2-bar-hp').style.width = `${(c2.stats.hp / 1200) * 100}%`;
+        document.getElementById('p2-bar-pwr').style.width = `${c2.stats.power}%`;
+        document.getElementById('p2-bar-spd').style.width = `${c2.stats.speed}%`;
+        document.getElementById('p2-sp1').textContent = c2.specials.sp1.name;
+        document.getElementById('p2-sp2').textContent = c2.specials.sp2.name;
+        document.getElementById('p2-ult').textContent = c2.specials.ult.name;
+
+        CHARACTER_ROSTER.forEach(ch => {
+          const btn = document.getElementById(`roster-btn-${ch.id}`);
+          if (!btn) return;
+          const isSelected = ch.id === this.selectedP1 || ch.id === this.selectedP2;
+          if (isSelected) {
+            btn.style.borderColor = ch.id === this.selectedP1 ? '#06b6d4' : '#ef4444';
+            btn.style.background = 'rgba(255,255,255,0.14)';
+          } else {
+            btn.style.borderColor = 'rgba(255,255,255,0.15)';
+            btn.style.background = '';
+          }
+        });
+      }
+
+      openCharSelect(mode = 'versus') {
+        this.audio.playUiClick();
+        this.gameMode = mode;
+        this.screenState = 'select';
+        this.selectTarget = 1;
+        this.stageIndex = 0;
+        this.survivalStreak = 0;
+
+        const modeTitles = {
+          versus: 'HIZLI MAÇ (1V1)',
+          arcade: 'ARCADE KULESİ (Aşama 1/5)',
+          tournament: 'ŞAMPİYONLUK TURNUVASI',
+          survival: 'HAYATTA KALMA',
+          practice: 'ANTRENMAN DOJOSU',
+          local2p: '2 OYUNCULU DÜELLO'
+        };
+        document.getElementById('select-mode-badge').textContent = modeTitles[mode] || 'HIZLI MAÇ';
+        document.getElementById('p2-role-label').textContent = mode === 'local2p' ? 'OYUNCU 2' : (mode === 'practice' ? 'ANTRENMAN BOTU' : 'RAKİP (YZ)');
+
+        const practiceWrap = document.getElementById('practice-options-wrapper');
+        if (mode === 'practice') {
+          practiceWrap.classList.remove('hidden');
+          practiceWrap.classList.add('flex');
+        } else {
+          practiceWrap.classList.add('hidden');
+          practiceWrap.classList.remove('flex');
+        }
+
+        this.randomizeOpponent(false);
+        this.hideAllScreens();
+        const scr = document.getElementById('char-select-screen');
+        scr.classList.remove('hidden');
+        scr.classList.add('flex');
+        this.updateSelectCards();
+        this.setupMenuShowcase();
+      }
+
+      setPracticeDummyMode(mode) {
+        this.practiceDummyMode = mode;
+      }
+
+      setSelectTarget(slot) {
+        this.audio.playUiClick();
+        this.selectTarget = slot;
+        const b1 = document.getElementById('select-target-p1');
+        const b2 = document.getElementById('select-target-p2');
+        if (slot === 1) {
+          b1.className = 'px-3 py-1 rounded-lg bg-cyan-500/25 border border-cyan-400 text-cyan-200 font-bold';
+          b2.className = 'px-3 py-1 rounded-lg bg-white/5 border border-white/15 text-gray-300 font-bold';
+        } else {
+          b2.className = 'px-3 py-1 rounded-lg bg-red-500/25 border border-red-400 text-red-200 font-bold';
+          b1.className = 'px-3 py-1 rounded-lg bg-white/5 border border-white/15 text-gray-300 font-bold';
+        }
+      }
+
+      pickCharacter(id) {
+        this.audio.playUiClick();
+        if (this.selectTarget === 1) {
+          this.selectedP1 = id;
+          // Oyuncu kendi karakterini seçtiğinde NPC'nin aynı karakteri seçmesini engelle ve farklı bir rakip ata
+          const available = CHARACTER_ROSTER.filter(c => c.id !== this.selectedP1);
+          if (available.length > 0 && available.some(c => c.id === this.selectedP2)) {
+            const pick = available[Math.floor(Math.random() * available.length)];
+            this.selectedP2 = pick.id;
+          }
+        } else {
+          this.selectedP2 = id;
+        }
+        this.updateSelectCards();
+        this.setupMenuShowcase();
+      }
+
+      randomizeOpponent(playSound = true) {
+        if (playSound) this.audio.playUiClick();
+        // Rakibin her maçta, rövanşta ve kule aşamasında kesinlikle farklı bir karakter seçmesi için havuzdan önceki rakibi ve oyuncunun seçtiğini eleyip tamamen rastgele yeni bir karakter seçiyoruz
+        const pool = CHARACTER_ROSTER.filter(c => c.id !== this.selectedP1 && c.id !== this.selectedP2);
+        const fallbackPool = CHARACTER_ROSTER.filter(c => c.id !== this.selectedP1);
+        const activePool = pool.length > 0 ? pool : fallbackPool;
+        const pick = activePool[Math.floor(Math.random() * activePool.length)];
+        if (pick) this.selectedP2 = pick.id;
+        if (this.screenState === 'select') {
+          this.updateSelectCards();
+          this.setupMenuShowcase();
+        }
+      }
+
+      startMatch() {
+        this.audio.playUiClick();
+        // Hızlı maç, kule ve rövanş maçlarında NPC'nin her seferinde kesinlikle farklı bir karakter seçmesini garanti ediyoruz
+        if (this.gameMode !== 'local2p') {
+          this.randomizeOpponent(false);
+        }
+        
+        this.clearFightersFromScene();
+        this.arenaManager.loadArena(this.selectedArena);
+
+        const c1 = CHARACTER_ROSTER.find(c => c.id === this.selectedP1) || CHARACTER_ROSTER[0];
+        const c2 = CHARACTER_ROSTER.find(c => c.id === this.selectedP2) || CHARACTER_ROSTER[1];
+
+        const f1 = new Fighter(1, c1, this.metalBump, this.fabricBump);
+        const f2 = new Fighter(2, c2, this.metalBump, this.fabricBump);
+        this.fighters = [f1, f2];
+        this.scene.add(f1.rig.root, f2.rig.root);
+
+        this.roundNum = 1;
+        this.p1Wins = 0;
+        this.p2Wins = 0;
+        this.matchStartTime = performance.now();
+        this.screenState = 'fight';
+
+        this.hideAllScreens();
+        const hud = document.getElementById('fight-hud');
+        hud.classList.remove('hidden');
+        hud.classList.add('flex');
+
+        document.getElementById('hud-p1-name').textContent = c1.name;
+        document.getElementById('hud-p2-name').textContent = c2.name;
+
+        this.updateRoundDots();
+        this.beginRound();
+        this.audio.startBattleBgm();
+      }
+
+      beginRound() {
+        const [f1, f2] = this.fighters;
+        f1.resetForRound(-2.2);
+        f2.resetForRound(2.2);
+        this.roundTimer = 99;
+        this.roundTimerAcc = 0;
+        this.roundActive = false;
+        document.getElementById('hud-timer').textContent = this.roundTimer;
+        this.updateHudBars();
+
+        document.getElementById('hud-round-label').textContent = `RAUND ${this.roundNum}`;
+        this.showBanner(`RAUND ${this.roundNum}`, 'text-amber-400', 'DÖVÜŞE HAZIRLAN!');
+        this.audio.announce(`Raund ${this.roundNum}`);
+
+        setTimeout(() => {
+          this.showBanner('DÖVÜŞ!', 'text-red-500', '');
+          this.audio.announce('Dövüş!');
+          this.roundActive = true;
+        }, 1350);
+      }
+
+      updateRoundDots() {
+        ['p1', 'p2'].forEach(side => {
+          const container = document.getElementById(`hud-${side}-rounds`);
+          if (!container) return;
+          container.innerHTML = '';
+          const wins = side === 'p1' ? this.p1Wins : this.p2Wins;
+          for (let i = 0; i < 2; i++) {
+            const dot = document.createElement('div');
+            dot.className = `w-3 h-3 rounded-full border border-amber-400 ${i < wins ? 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)]' : 'bg-transparent'}`;
+            container.appendChild(dot);
+          }
+        });
+      }
+
+      showBanner(title, titleClass, subtitle = '') {
+        const center = document.getElementById('center-announcer');
+        if (!center) return;
+        const banner = document.createElement('div');
+        banner.className = 'banner-anim flex flex-col items-center justify-center';
+        banner.innerHTML = `
+          <div class="font-display font-black text-4xl sm:text-6xl tracking-wider ${titleClass} drop-shadow-[0_6px_20px_rgba(0,0,0,0.9)]">${title}</div>
+          ${subtitle ? `<div class="font-display font-bold text-sm sm:text-lg tracking-widest text-white mt-1 drop-shadow-[0_3px_10px_rgba(0,0,0,0.8)]">${subtitle}</div>` : ''}
+        `;
+        center.appendChild(banner);
+        setTimeout(() => banner.remove(), 1450);
+      }
+
+      triggerBasicAttack(fighter, type) {
+        const metas = {
+          attack_light: { dmg: 32, range: 1.8, duration: 0.28, activeStart: 0.08, activeEnd: 0.22, heavy: false },
+          attack_heavy: { dmg: 65, range: 2.1, duration: 0.45, activeStart: 0.14, activeEnd: 0.36, heavy: true },
+          kick_front:   { dmg: 42, range: 2.2, duration: 0.35, activeStart: 0.10, activeEnd: 0.28, heavy: false },
+          kick_round:   { dmg: 75, range: 2.4, duration: 0.50, activeStart: 0.16, activeEnd: 0.40, heavy: true }
+        };
+        const m = metas[type] || metas.attack_light;
+        if (fighter.startAttack(type, m)) {
+          this.audio.playHit(m.heavy);
+        }
+      }
+
+      triggerSpecial(fighter, type) {
+        const charData = fighter.data;
+        const meta = charData.specials[type];
+        if (!meta) return;
+        if (fighter.startAttack('special', { dmg: meta.dmg, range: meta.range, duration: 0.65, cost: meta.cost, color: meta.color, isUlt: type === 'ult' })) {
+          this.audio.playSpecial(type === 'ult');
+          this.arenaManager.spawnShockwave(fighter.x, 1.2, meta.color);
+        }
+      }
+
+      handleKeyDown(code) {
+        if (this.screenState === 'select' || this.screenState === 'menu') {
+          if (code === 'Enter') {
+            if (this.screenState === 'select') this.startMatch();
+          }
+          return;
+        }
+
+        if (code === 'Escape') {
+          this.togglePause();
+          return;
+        }
+
+        if (this.screenState !== 'fight' || !this.roundActive || this.fighters.length < 2) return;
+
+        const p1 = this.fighters[0];
+        if (p1.state === 'ko' || p1.state === 'victory') return;
+
+        if (code === 'KeyJ') this.triggerBasicAttack(p1, 'attack_light');
+        else if (code === 'KeyK') this.triggerBasicAttack(p1, 'attack_heavy');
+        else if (code === 'KeyU') this.triggerBasicAttack(p1, 'kick_front');
+        else if (code === 'KeyI') this.triggerBasicAttack(p1, 'kick_round');
+        else if (code === 'KeyQ') this.triggerSpecial(p1, 'sp1');
+        else if (code === 'KeyE') this.triggerSpecial(p1, 'sp2');
+        else if (code === 'KeyR') this.triggerSpecial(p1, 'ult');
+        else if (code === 'KeyL') {
+          if (!p1.isBusy()) p1.state = 'block';
+        } else if (code === 'KeyS') {
+          p1.isCrouching = true;
+        }
+      }
+
+      processContinuousInput(dt) {
+        if (this.screenState !== 'fight' || !this.roundActive || this.fighters.length < 2) return;
+        const p1 = this.fighters[0];
+        const p2 = this.fighters[1];
+        if (p1.state === 'ko' || p1.state === 'victory') return;
+
+        const speed = 5.2 * (p1.data.stats.speed / 88);
+        if (!p1.isBusy() && p1.state !== 'block') {
+          if (this.keys['KeyA']) {
+            p1.vx = -speed;
+            p1.state = 'walk';
+          } else if (this.keys['KeyD']) {
+            p1.vx = speed;
+            p1.state = 'walk';
+          } else if (p1.state === 'walk') {
+            p1.state = 'idle';
+          }
+
+          if ((this.keys['KeyW'] || this.keys['Space']) && p1.y === 0) {
+            p1.vy = 9.2;
+            p1.state = 'jump';
+            this.audio.playTone(320, 160, 0.15, 'sine', 0.5);
+          }
+        }
+
+        // Yapay zekâ veya 2. oyuncu kontrolü
+        if (this.gameMode === 'practice') {
+          if (this.practiceDummyMode === 'block' && p2.state !== 'ko') p2.state = 'block';
+          else if (this.practiceDummyMode === 'attack' && !p2.isBusy() && Math.random() < 0.03) {
+            this.triggerBasicAttack(p2, Math.random() < 0.5 ? 'attack_light' : 'kick_front');
+          }
+        } else if (this.gameMode === 'local2p' && p2.state !== 'ko') {
+          const p2Speed = 5.2 * (p2.data.stats.speed / 88);
+          if (!p2.isBusy() && p2.state !== 'block') {
+            if (this.keys['ArrowLeft']) { p2.vx = -p2Speed; p2.state = 'walk'; }
+            else if (this.keys['ArrowRight']) { p2.vx = p2Speed; p2.state = 'walk'; }
+            else if (p2.state === 'walk') { p2.state = 'idle'; }
+            if (this.keys['ArrowUp'] && p2.y === 0) { p2.vy = 9.2; p2.state = 'jump'; }
+          }
+          if (this.keys['Numpad1']) this.triggerBasicAttack(p2, 'attack_light');
+          if (this.keys['Numpad2']) this.triggerBasicAttack(p2, 'attack_heavy');
+          if (this.keys['Numpad4']) this.triggerSpecial(p2, 'sp1');
+          if (this.keys['Numpad0']) p2.state = 'block';
+        } else if (p2.state !== 'ko') {
+          this.aiController.update(dt, p2, p1, this);
+        }
+      }
+
+      evaluateCombatHits() {
+        if (this.fighters.length < 2) return;
+        const [f1, f2] = this.fighters;
+
+        this.checkOneAttackHit(f1, f2);
+        this.checkOneAttackHit(f2, f1);
+      }
+
+      checkOneAttackHit(attacker, defender) {
+        if (!attacker.isBusy() || attacker.hasHitThisAttack || !attacker.currentAttack) return;
+        const atk = attacker.currentAttack;
+        if (attacker.stateTimer < (atk.activeStart || 0.08) || attacker.stateTimer > (atk.activeEnd || 0.3)) return;
+
+        const dist = Math.abs(attacker.x - defender.x);
+        const facingMatch = (defender.x - attacker.x) * attacker.facing >= 0;
+
+        if (dist <= atk.range && facingMatch) {
+          attacker.hasHitThisAttack = true;
+
+          if (defender.state === 'block') {
+            this.audio.playBlock();
+            this.arenaManager.spawnImpactBurst(defender.x, defender.y + 1.2, 0x38bdf8, 10, 0.8);
+          } else {
+            const defFactor = 100 / (80 + defender.data.stats.defense * 0.25);
+            const comboScale = Math.max(0.55, 1 - attacker.comboCount * 0.08);
+            const finalDmg = Math.max(10, Math.round(atk.dmg * defFactor * comboScale));
+
+            defender.hp = Math.max(0, defender.hp - finalDmg);
+            defender.tookDamageThisRound = true;
+            defender.vx = attacker.facing * (atk.heavy ? 6.2 : 3.4);
+
+            attacker.totalDamageDealt += finalDmg;
+            attacker.energy = Math.min(100, attacker.energy + (atk.cost ? 4 : 11));
+            attacker.comboCount += 1;
+            attacker.comboDamage += finalDmg;
+            attacker.comboResetTimer = 2.1;
+
+            if (attacker.slot === 1 && attacker.comboCount > this.saveData.maxCombo) {
+              this.saveData.maxCombo = attacker.comboCount;
+              this.persistSave();
+              this.checkAchievements();
+            }
+
+            if (attacker.comboCount === 3) {
+              this.showBanner('ACIMASIZ!', 'text-amber-400', '3+ VURUŞ KOMBO');
+              this.audio.announce('Acımasız!');
+            } else if (attacker.comboCount === 5) {
+              this.showBanner('DURDURULAMAZ!', 'text-red-500', '5+ VURUŞ KOMBO');
+              this.audio.announce('Durdurulamaz!');
+            }
+
+            if (attacker.comboCount >= 3 || defender.hp < defender.maxHp * 0.35) {
+              this.audio.intenseMode = true;
+            }
+
+            this.audio.playHit(atk.heavy);
+            const burstColor = atk.color || attacker.data.colors.glow;
+            this.arenaManager.spawnImpactBurst(defender.x, defender.y + 1.25, burstColor, atk.heavy ? 22 : 12, atk.heavy ? 1.25 : 0.85);
+            if (atk.isUlt) this.arenaManager.spawnShockwave(defender.x, defender.y + 1.1, burstColor);
+
+            this.hitstopTimer = atk.heavy ? 0.055 : 0.028;
+            this.cameraShake = atk.heavy ? 0.24 : 0.11;
+
+            if (defender.hp <= 0) {
+              defender.state = 'ko';
+              this.handleRoundEnd(attacker, defender);
+            } else {
+              defender.state = 'hit';
+              defender.stateTimer = 0;
+              defender.stateDuration = atk.heavy ? 0.34 : 0.22;
+            }
+          }
+          this.updateHudBars();
+        }
+      }
+
+      handleRoundEnd(winner, loser) {
+        if (!this.roundActive) return;
+        this.roundActive = false;
+        this.audio.intenseMode = false;
+
+        // Sinematik Son Darbe (Final Blow) Ağır Çekim & Yakınlaştırma
+        this.timeScale = 0.24;
+        this.finisherZoomTarget = winner;
+        this.cameraShake = 0.42;
+        this.arenaManager.spawnShockwave(loser.x, 1.0, winner.data.colors.glow);
+
+        const isFlawless = !winner.tookDamageThisRound && winner.hp === winner.maxHp;
+        if (winner.slot === 1 && isFlawless) {
+          this.saveData.flawlessCount += 1;
+          this.persistSave();
+          this.checkAchievements();
+        }
+        this.showBanner('SON DARBE!', 'text-red-500', isFlawless ? 'KUSURSUZ ZAFER!' : `${winner.data.name} ÜSTÜNLÜK KURDU`);
+        this.audio.announce(isFlawless ? 'Son darbe! Kusursuz zafer!' : 'Son darbe! Nakavt!');
+
+        setTimeout(() => {
+          this.timeScale = 1.0;
+          this.finisherZoomTarget = null;
+          winner.state = 'victory';
+
+          if (winner.slot === 1) this.p1Wins += 1;
+          else this.p2Wins += 1;
+          this.updateRoundDots();
+
+          if (this.p1Wins >= 2 || this.p2Wins >= 2) {
+            setTimeout(() => this.finishMatch(this.p1Wins >= 2 ? this.fighters[0] : this.fighters[1]), 1400);
+          } else {
+            this.roundNum += 1;
+            setTimeout(() => this.beginRound(), 1600);
+          }
+        }, 1550);
+      }
+
+      finishMatch(matchWinner) {
+        this.screenState = 'result';
+        this.audio.stopBattleBgm();
+
+        const p1Won = matchWinner.slot === 1;
+        const elapsed = Math.max(1, Math.round((performance.now() - this.matchStartTime) / 1000));
+
+        if (p1Won) {
+          this.saveData.wins += 1;
+          if (!this.saveData.uniqueWinners.includes(this.selectedP1)) {
+            this.saveData.uniqueWinners.push(this.selectedP1);
+          }
+          if (this.selectedP1 === 'draven') {
+            this.saveData.dravenWins += 1;
+          }
+          if (this.difficulty === 'expert' && this.gameMode !== 'local2p' && this.gameMode !== 'practice') {
+            this.saveData.expertWins += 1;
+          }
+          if (this.gameMode === 'arcade') {
+            this.saveData.arcadeBest = Math.max(this.saveData.arcadeBest, this.stageIndex + 1);
+          }
+          if (this.gameMode === 'survival') {
+            this.survivalStreak += 1;
+            if (this.survivalStreak > this.saveData.bestSurvival) {
+              this.saveData.bestSurvival = this.survivalStreak;
+            }
+          }
+          this.persistSave();
+          this.checkAchievements();
+          this.audio.announce('Zafer!');
+        } else {
+          this.audio.announce('Yenilgi!');
+        }
+
+        document.getElementById('result-title').textContent = p1Won ? 'ZAFER!' : 'YENİLGİ!';
+        document.getElementById('result-title').className = `font-display font-black text-3xl sm:text-4xl tracking-wider mb-1 ${p1Won ? 'text-amber-400' : 'text-red-500'}`;
+        document.getElementById('result-subtitle').textContent = `${matchWinner.data.name} (${matchWinner.data.title}) maçı kazandı!`;
+        document.getElementById('res-damage').textContent = this.fighters[0].totalDamageDealt;
+        document.getElementById('res-combo').textContent = `${this.saveData.maxCombo} Vuruş`;
+        document.getElementById('res-time').textContent = `${elapsed} sn`;
+
+        const nextBtn = document.getElementById('btn-next-stage');
+        const stageCounter = document.getElementById('stage-counter');
+        if (p1Won && this.gameMode === 'arcade' && this.stageIndex < 4) {
+          nextBtn.classList.remove('hidden');
+          stageCounter.textContent = `Aşama ${this.stageIndex + 1} / 5`;
+        } else if (p1Won && ['tournament', 'survival'].includes(this.gameMode)) {
+          nextBtn.classList.remove('hidden');
+          stageCounter.textContent = `Devam Et`;
+        } else {
+          nextBtn.classList.add('hidden');
+        }
+
+        const resModal = document.getElementById('result-modal');
+        resModal.classList.remove('hidden');
+        resModal.classList.add('flex');
+      }
+
+      nextStage() {
+        this.stageIndex += 1;
+        this.randomizeOpponent(false);
+        const arenaKeys = Object.keys(ARENAS);
+        this.selectedArena = arenaKeys[this.stageIndex % arenaKeys.length];
+        this.startMatch();
+      }
+
+      restartMatch() {
+        // Yeniden maç başlatıldığında da rakip yapay zekanın farklı bir karakter seçmesini garanti et
+        if (this.gameMode !== 'local2p') {
+          this.randomizeOpponent(false);
+        }
+        this.startMatch();
+      }
+
+      updateHudBars() {
+        if (this.fighters.length < 2) return;
+        const [f1, f2] = this.fighters;
+
+        const p1Pct = Math.max(0, (f1.hp / f1.maxHp) * 100);
+        const p2Pct = Math.max(0, (f2.hp / f2.maxHp) * 100);
+
+        document.getElementById('hud-p1-hp').style.width = `${p1Pct}%`;
+        document.getElementById('hud-p1-hp-lag').style.width = `${p1Pct}%`;
+        document.getElementById('hud-p1-hp-text').textContent = Math.ceil(f1.hp);
+        document.getElementById('hud-p1-energy').style.width = `${f1.energy}%`;
+
+        document.getElementById('hud-p2-hp').style.width = `${p2Pct}%`;
+        document.getElementById('hud-p2-hp-lag').style.width = `${p2Pct}%`;
+        document.getElementById('hud-p2-hp-text').textContent = Math.ceil(f2.hp);
+        document.getElementById('hud-p2-energy').style.width = `${f2.energy}%`;
+
+        // Kombo Sayaç Kutuları
+        const c1Box = document.getElementById('p1-combo-box');
+        if (f1.comboCount >= 2) {
+          c1Box.style.opacity = '1';
+          document.getElementById('p1-combo-count').textContent = f1.comboCount;
+          document.getElementById('p1-combo-dmg').textContent = `${f1.comboDamage} Hasar`;
+        } else {
+          c1Box.style.opacity = '0';
+        }
+
+        const c2Box = document.getElementById('p2-combo-box');
+        if (f2.comboCount >= 2) {
+          c2Box.style.opacity = '1';
+          document.getElementById('p2-combo-count').textContent = f2.comboCount;
+          document.getElementById('p2-combo-dmg').textContent = `${f2.comboDamage} Hasar`;
+        } else {
+          c2Box.style.opacity = '0';
+        }
+      }
+
+      updateCamera(dt) {
+        if (this.screenState === 'menu') {
+          const angle = this.globalClock * 0.25;
+          this.camera.position.lerp(new THREE.Vector3(Math.sin(angle) * 2.2, 2.15, 6.8), dt * 2.5);
+          this.camera.lookAt(0, 1.35, 0);
+          return;
+        }
+
+        if (this.screenState === 'select') {
+          this.camera.position.lerp(new THREE.Vector3(0, 1.85, 5.6), dt * 4);
+          this.camera.lookAt(0, 1.25, 0);
+          return;
+        }
+
+        if (this.fighters.length >= 2) {
+          if (this.finisherZoomTarget) {
+            const t = this.finisherZoomTarget;
+            this.camera.position.lerp(new THREE.Vector3(t.x, 1.65, 3.6), dt * 6);
+            this.camera.lookAt(t.x, 1.25, 0);
+            return;
+          }
+
+          const [f1, f2] = this.fighters;
+          const midX = (f1.x + f2.x) * 0.5;
+          const dist = Math.abs(f1.x - f2.x);
+          const targetZ = Math.max(5.8, Math.min(9.6, 4.9 + dist * 0.72));
+          const targetY = 2.05 + Math.max(f1.y, f2.y) * 0.35;
+
+          let shakeX = 0, shakeY = 0;
+          if (this.cameraShake > 0) {
+            shakeX = (Math.random() - 0.5) * this.cameraShake;
+            shakeY = (Math.random() - 0.5) * this.cameraShake;
+            this.cameraShake = Math.max(0, this.cameraShake - dt * 1.4);
+          }
+
+          this.camera.position.lerp(new THREE.Vector3(midX + shakeX, targetY + shakeY, targetZ), dt * 6.5);
+          this.camera.lookAt(midX, 1.28, 0);
+        }
+      }
+
+      loop(now) {
+        const rawDt = Math.min(0.05, (now - this.lastFrameTime) / 1000);
+        this.lastFrameTime = now;
+
+        if (this.screenState !== 'paused') {
+          this.globalClock += rawDt;
+
+          if (this.hitstopTimer > 0) {
+            this.hitstopTimer -= rawDt;
+          } else {
+            const dt = rawDt * this.timeScale;
+
+            if (this.screenState === 'fight') {
+              this.processContinuousInput(dt);
+
+              if (this.roundActive && this.gameMode !== 'practice') {
+                this.roundTimerAcc += dt;
+                if (this.roundTimerAcc >= 1.0) {
+                  this.roundTimerAcc -= 1.0;
+                  this.roundTimer = Math.max(0, this.roundTimer - 1);
+                  document.getElementById('hud-timer').textContent = this.roundTimer;
+                  if (this.roundTimer === 0) {
+                    const winner = this.fighters[0].hp >= this.fighters[1].hp ? this.fighters[0] : this.fighters[1];
+                    const loser = winner === this.fighters[0] ? this.fighters[1] : this.fighters[0];
+                    this.handleRoundEnd(winner, loser);
+                  }
+                }
+              }
+
+              if (this.fighters.length >= 2) {
+                this.fighters[0].update(dt, this.fighters[1]);
+                this.fighters[1].update(dt, this.fighters[0]);
+                this.evaluateCombatHits();
+                this.updateHudBars();
+              }
+            } else {
+              this.fighters.forEach(f => f.update(dt, null));
+            }
+
+            this.arenaManager.update(dt, this.globalClock);
+          }
+
+          this.updateCamera(rawDt);
+        }
+
+        this.renderer.render(this.scene, this.camera);
+        requestAnimationFrame(t => this.loop(t));
+      }
+
+      togglePause() {
+        this.audio.playUiClick();
+        const modal = document.getElementById('pause-modal');
+        if (this.screenState === 'fight') {
+          this.screenState = 'paused';
+          modal.classList.remove('hidden');
+          modal.classList.add('flex');
+        } else if (this.screenState === 'paused') {
+          this.screenState = 'fight';
+          modal.classList.add('hidden');
+          modal.classList.remove('flex');
+        }
+      }
+
+      returnToMenu() {
+        this.audio.playUiClick();
+        this.audio.stopBattleBgm();
+        this.screenState = 'menu';
+        this.hideAllScreens();
+        const menu = document.getElementById('main-menu');
+        menu.classList.remove('hidden');
+        menu.classList.add('flex');
+        this.setupMenuShowcase();
+      }
+
+      hideAllScreens() {
+        ['main-menu', 'char-select-screen', 'fight-hud', 'pause-modal', 'result-modal', 'roster-modal', 'settings-modal'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+          }
+        });
+      }
+
+      showModal(id) {
+        this.audio.playUiClick();
+        const el = document.getElementById(id);
+        if (el) {
+          el.classList.remove('hidden');
+          el.classList.add('flex');
+        }
+      }
+
+      closeModals() {
+        this.audio.playUiClick();
+        ['roster-modal', 'settings-modal', 'achievements-modal'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+          }
+        });
+      }
+
+      setSfxVolume(val) {
+        this.audio.sfxVol = val / 100;
+        document.getElementById('sfx-val').textContent = `${val}%`;
+      }
+
+      setBgmVolume(val) {
+        this.audio.bgmVol = val / 100;
+        document.getElementById('bgm-val').textContent = `${val}%`;
+      }
+
+      setGraphicsQuality(q) {
+        if (q === 'low') {
+          this.renderer.setPixelRatio(1);
+          this.renderer.shadowMap.enabled = false;
+        } else if (q === 'medium') {
+          this.renderer.setPixelRatio(1.25);
+          this.renderer.shadowMap.enabled = true;
+        } else {
+          this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+          this.renderer.shadowMap.enabled = true;
+        }
+      }
+
+      resetProgress() {
+        this.saveData = {
+          wins: 0, maxCombo: 0, bestSurvival: 0, arcadeBest: 0,
+          flawlessCount: 0, expertWins: 0, dravenWins: 0,
+          uniqueWinners: [], unlockedAchievements: []
+        };
+        this.persistSave();
+        this.audio.playUiClick();
+      }
+
+      toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.app = new ShadowClashApp();
+    });
+  </script>
+</body>
+</html>
